@@ -1,0 +1,29 @@
+# Datasets & pesos — NUNCA versionar (repo público)
+data/
+runs/
+outputs/
+*.zip
+*.pt
+*.pth
+*.onnx
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+env/
+.ipynb_checkpoints/
+
+# Análise pesada
+*.parquet
+analysis/**/*.png
+!analysis/**/.gitkeep
+
+# Logs
+*.log
+
+# OS/editor
+.DS_Store
+.idea/
+.vscode/

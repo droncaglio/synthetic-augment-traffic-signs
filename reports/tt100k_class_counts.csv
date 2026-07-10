@@ -1,0 +1,202 @@
+category,family,prefix,instances,images,pct_instances,cum_pct
+pn,prohibitory (proibição/regulamentação),pn,3176,3016,11.614,11.614
+pne,prohibitory (proibição/regulamentação),pne,2384,2142,8.718,20.332
+i5,indication/mandatory (indicação, azul),i,1734,1599,6.341,26.673
+p11,prohibitory (proibição/regulamentação),p,1582,1560,5.785,32.458
+pl40,prohibitory (proibição/regulamentação),pl,1413,1376,5.167,37.625
+pl50,prohibitory (proibição/regulamentação),pl,1073,1062,3.924,41.549
+pl80,prohibitory (proibição/regulamentação),pl,904,827,3.306,44.855
+p26,prohibitory (proibição/regulamentação),p,840,786,3.072,47.927
+pl60,prohibitory (proibição/regulamentação),pl,835,803,3.053,50.980
+i4,indication/mandatory (indicação, azul),i,814,774,2.977,53.957
+pl100,prohibitory (proibição/regulamentação),pl,673,394,2.461,56.418
+pl30,prohibitory (proibição/regulamentação),pl,640,637,2.340,58.758
+pl5,prohibitory (proibição/regulamentação),pl,537,386,1.964,60.722
+il60,indication/mandatory (indicação, azul),il,489,361,1.788,62.510
+i2,indication/mandatory (indicação, azul),i,472,463,1.726,64.236
+i2r,indication/mandatory (indicação, azul),i,429,422,1.569,65.805
+p5,prohibitory (proibição/regulamentação),p,421,408,1.540,67.344
+w57,warning (advertência, triangular),w,420,393,1.536,68.880
+p13,prohibitory (proibição/regulamentação),p,379,244,1.386,70.266
+p10,prohibitory (proibição/regulamentação),p,374,358,1.368,71.634
+ip,indication/mandatory (indicação, azul),ip,355,317,1.298,72.932
+i4l,indication/mandatory (indicação, azul),i,335,326,1.225,74.157
+pl120,prohibitory (proibição/regulamentação),pl,298,240,1.090,75.247
+il80,indication/mandatory (indicação, azul),il,297,261,1.086,76.333
+p23,prohibitory (proibição/regulamentação),p,297,283,1.086,77.419
+w59,warning (advertência, triangular),w,231,229,0.845,78.264
+pr40,prohibitory (proibição/regulamentação),pr,201,201,0.735,78.999
+p12,prohibitory (proibição/regulamentação),p,189,189,0.691,79.690
+ph4.5,prohibitory (proibição/regulamentação),ph,186,169,0.680,80.370
+w55,warning (advertência, triangular),w,179,177,0.655,81.025
+p3,prohibitory (proibição/regulamentação),p,173,173,0.633,81.657
+pl20,prohibitory (proibição/regulamentação),pl,164,160,0.600,82.257
+pg,prohibitory (proibição/regulamentação),pg,157,156,0.574,82.831
+pm20,prohibitory (proibição/regulamentação),pm,156,152,0.570,83.402
+pl70,prohibitory (proibição/regulamentação),pl,150,147,0.549,83.950
+pm55,prohibitory (proibição/regulamentação),pm,139,133,0.508,84.458
+p27,prohibitory (proibição/regulamentação),p,135,135,0.494,84.952
+il100,indication/mandatory (indicação, azul),il,132,132,0.483,85.435
+w13,warning (advertência, triangular),w,130,130,0.475,85.910
+p19,prohibitory (proibição/regulamentação),p,129,127,0.472,86.382
+w32,warning (advertência, triangular),w,124,118,0.453,86.835
+ph4,prohibitory (proibição/regulamentação),ph,122,118,0.446,87.282
+ph5,prohibitory (proibição/regulamentação),ph,121,102,0.442,87.724
+p6,prohibitory (proibição/regulamentação),p,116,115,0.424,88.148
+pm30,prohibitory (proibição/regulamentação),pm,107,103,0.391,88.539
+w30,warning (advertência, triangular),w,97,97,0.355,88.894
+pbp,prohibitory (proibição/regulamentação),pbp,96,96,0.351,89.245
+w63,warning (advertência, triangular),w,95,92,0.347,89.593
+w58,warning (advertência, triangular),w,95,94,0.347,89.940
+pl15,prohibitory (proibição/regulamentação),pl,93,93,0.340,90.280
+pcl,prohibitory (proibição/regulamentação),pcl,86,81,0.314,90.595
+il90,indication/mandatory (indicação, azul),il,78,75,0.285,90.880
+ps,prohibitory (proibição/regulamentação),ps,77,76,0.282,91.161
+pb,prohibitory (proibição/regulamentação),pb,76,76,0.278,91.439
+p18,prohibitory (proibição/regulamentação),p,75,72,0.274,91.714
+p1,prohibitory (proibição/regulamentação),p,74,73,0.271,91.984
+pbm,prohibitory (proibição/regulamentação),pbm,72,72,0.263,92.247
+i10,indication/mandatory (indicação, azul),i,71,70,0.260,92.507
+im,indication/mandatory (indicação, azul),im,70,70,0.256,92.763
+p9,prohibitory (proibição/regulamentação),p,65,65,0.238,93.001
+w22,warning (advertência, triangular),w,64,64,0.234,93.235
+pa14,prohibitory (proibição/regulamentação),pa,61,61,0.223,93.458
+w21,warning (advertência, triangular),w,57,57,0.208,93.666
+pl90,prohibitory (proibição/regulamentação),pl,56,47,0.205,93.871
+pr60,prohibitory (proibição/regulamentação),pr,53,53,0.194,94.065
+pm10,prohibitory (proibição/regulamentação),pm,52,52,0.190,94.255
+pr30,prohibitory (proibição/regulamentação),pr,50,50,0.183,94.438
+p25,prohibitory (proibição/regulamentação),p,50,50,0.183,94.621
+p14,prohibitory (proibição/regulamentação),p,49,43,0.179,94.800
+pl110,prohibitory (proibição/regulamentação),pl,46,44,0.168,94.968
+pmb,prohibitory (proibição/regulamentação),pmb,46,46,0.168,95.136
+pdd,prohibitory (proibição/regulamentação),pdd,43,43,0.157,95.294
+w47,warning (advertência, triangular),w,43,43,0.157,95.451
+wc,warning (advertência, triangular),wc,39,39,0.143,95.594
+pl10,prohibitory (proibição/regulamentação),pl,39,36,0.143,95.736
+pr50,prohibitory (proibição/regulamentação),pr,36,36,0.132,95.868
+p17,prohibitory (proibição/regulamentação),p,33,33,0.121,95.988
+il50,indication/mandatory (indicação, azul),il,33,18,0.121,96.109
+p29,prohibitory (proibição/regulamentação),p,33,32,0.121,96.230
+pr20,prohibitory (proibição/regulamentação),pr,32,32,0.117,96.347
+w45,warning (advertência, triangular),w,32,31,0.117,96.464
+pm15,prohibitory (proibição/regulamentação),pm,30,30,0.110,96.574
+ph4.2,prohibitory (proibição/regulamentação),ph,30,29,0.110,96.683
+w42,warning (advertência, triangular),w,27,27,0.099,96.782
+ph3,prohibitory (proibição/regulamentação),ph,27,16,0.099,96.881
+pa13,prohibitory (proibição/regulamentação),pa,25,25,0.091,96.972
+ph3.3,prohibitory (proibição/regulamentação),ph,24,24,0.088,97.060
+iz,indication/mandatory (indicação, azul),iz,24,24,0.088,97.148
+i12,indication/mandatory (indicação, azul),i,23,18,0.084,97.232
+pl35,prohibitory (proibição/regulamentação),pl,22,22,0.080,97.312
+pss,prohibitory (proibição/regulamentação),pss,22,21,0.080,97.393
+w3,warning (advertência, triangular),w,22,17,0.080,97.473
+p16,prohibitory (proibição/regulamentação),p,21,21,0.077,97.550
+il110,indication/mandatory (indicação, azul),il,21,21,0.077,97.627
+pcr,prohibitory (proibição/regulamentação),pcr,19,19,0.069,97.696
+pr70,prohibitory (proibição/regulamentação),pr,18,18,0.066,97.762
+pcd,prohibitory (proibição/regulamentação),pcd,18,18,0.066,97.828
+w34,warning (advertência, triangular),w,18,17,0.066,97.894
+i13,indication/mandatory (indicação, azul),i,17,17,0.062,97.956
+w24,warning (advertência, triangular),w,16,16,0.059,98.014
+p2,prohibitory (proibição/regulamentação),p,16,16,0.059,98.073
+pm5,prohibitory (proibição/regulamentação),pm,16,16,0.059,98.131
+pw3.2,prohibitory (proibição/regulamentação),pw,15,11,0.055,98.186
+ph2.2,prohibitory (proibição/regulamentação),ph,15,13,0.055,98.241
+ph2.8,prohibitory (proibição/regulamentação),ph,15,15,0.055,98.296
+w20,warning (advertência, triangular),w,15,15,0.055,98.351
+il70,indication/mandatory (indicação, azul),il,14,14,0.051,98.402
+ph2.5,prohibitory (proibição/regulamentação),ph,14,8,0.051,98.453
+w18,warning (advertência, triangular),w,13,13,0.048,98.501
+pa10,prohibitory (proibição/regulamentação),pa,13,12,0.048,98.548
+w26,warning (advertência, triangular),w,13,13,0.048,98.596
+p8,prohibitory (proibição/regulamentação),p,13,13,0.048,98.643
+ph4.8,prohibitory (proibição/regulamentação),ph,13,13,0.048,98.691
+p1n,prohibitory (proibição/regulamentação),p,12,12,0.044,98.735
+ph2,prohibitory (proibição/regulamentação),ph,12,12,0.044,98.779
+pr80,prohibitory (proibição/regulamentação),pr,11,11,0.040,98.819
+pm50,prohibitory (proibição/regulamentação),pm,11,11,0.040,98.859
+phclr,prohibitory (proibição/regulamentação),phclr,9,9,0.033,98.892
+pm25,prohibitory (proibição/regulamentação),pm,9,9,0.033,98.925
+pm8,prohibitory (proibição/regulamentação),pm,9,9,0.033,98.958
+pmr,prohibitory (proibição/regulamentação),pmr,9,9,0.033,98.991
+w41,warning (advertência, triangular),w,9,9,0.033,99.024
+ph3.5,prohibitory (proibição/regulamentação),ph,9,9,0.033,99.057
+pw4,prohibitory (proibição/regulamentação),pw,9,7,0.033,99.089
+i1,indication/mandatory (indicação, azul),i,8,8,0.029,99.119
+w43,warning (advertência, triangular),w,8,8,0.029,99.148
+w46,warning (advertência, triangular),w,8,8,0.029,99.177
+pm40,prohibitory (proibição/regulamentação),pm,8,8,0.029,99.206
+pl25,prohibitory (proibição/regulamentação),pl,8,8,0.029,99.236
+pc,prohibitory (proibição/regulamentação),pc,7,7,0.026,99.261
+w8,warning (advertência, triangular),w,7,7,0.026,99.287
+pm2,prohibitory (proibição/regulamentação),pm,7,7,0.026,99.313
+pt,prohibitory (proibição/regulamentação),pt,7,7,0.026,99.338
+i3,indication/mandatory (indicação, azul),i,7,7,0.026,99.364
+ph4.3,prohibitory (proibição/regulamentação),ph,6,6,0.022,99.386
+i15,indication/mandatory (indicação, azul),i,6,6,0.022,99.408
+pctl,prohibitory (proibição/regulamentação),pctl,6,6,0.022,99.430
+pm46,prohibitory (proibição/regulamentação),pm,6,6,0.022,99.451
+i14,indication/mandatory (indicação, azul),i,5,5,0.018,99.470
+pn-2,prohibitory (proibição/regulamentação),pn-,5,5,0.018,99.488
+pm35,prohibitory (proibição/regulamentação),pm,5,5,0.018,99.506
+w10,warning (advertência, triangular),w,5,5,0.018,99.525
+p15,prohibitory (proibição/regulamentação),p,5,5,0.018,99.543
+phcs,prohibitory (proibição/regulamentação),phcs,5,5,0.018,99.561
+w37,warning (advertência, triangular),w,4,4,0.015,99.576
+ph5.3,prohibitory (proibição/regulamentação),ph,4,4,0.015,99.590
+w66,warning (advertência, triangular),w,4,4,0.015,99.605
+p4,prohibitory (proibição/regulamentação),p,4,4,0.015,99.620
+pw3,prohibitory (proibição/regulamentação),pw,4,4,0.015,99.634
+w38,warning (advertência, triangular),w,3,3,0.011,99.645
+w31,warning (advertência, triangular),w,3,3,0.011,99.656
+w60,warning (advertência, triangular),w,3,3,0.011,99.667
+ph2.9,prohibitory (proibição/regulamentação),ph,3,2,0.011,99.678
+w50,warning (advertência, triangular),w,3,3,0.011,99.689
+pa12,prohibitory (proibição/regulamentação),pa,3,2,0.011,99.700
+p28,prohibitory (proibição/regulamentação),p,3,3,0.011,99.711
+pm2.5,prohibitory (proibição/regulamentação),pm,3,3,0.011,99.722
+ph2.6,prohibitory (proibição/regulamentação),ph,3,3,0.011,99.733
+pmblr,prohibitory (proibição/regulamentação),pmblr,3,3,0.011,99.744
+w15,warning (advertência, triangular),w,3,3,0.011,99.755
+pw4.5,prohibitory (proibição/regulamentação),pw,3,3,0.011,99.766
+w35,warning (advertência, triangular),w,3,3,0.011,99.777
+ph2.4,prohibitory (proibição/regulamentação),ph,3,3,0.011,99.788
+i11,indication/mandatory (indicação, azul),i,3,3,0.011,99.799
+pw3.5,prohibitory (proibição/regulamentação),pw,2,2,0.007,99.806
+pm13,prohibitory (proibição/regulamentação),pm,2,2,0.007,99.814
+w16,warning (advertência, triangular),w,2,2,0.007,99.821
+p20,prohibitory (proibição/regulamentação),p,2,2,0.007,99.828
+pr100,prohibitory (proibição/regulamentação),pr,2,2,0.007,99.835
+pm1.5,prohibitory (proibição/regulamentação),pm,2,2,0.007,99.843
+w12,warning (advertência, triangular),w,2,2,0.007,99.850
+ph5.5,prohibitory (proibição/regulamentação),ph,2,2,0.007,99.857
+p21,prohibitory (proibição/regulamentação),p,2,2,0.007,99.865
+ph1.8,prohibitory (proibição/regulamentação),ph,2,2,0.007,99.872
+ph3.2,prohibitory (proibição/regulamentação),ph,2,2,0.007,99.879
+pl65,prohibitory (proibição/regulamentação),pl,2,1,0.007,99.887
+ph2.1,prohibitory (proibição/regulamentação),ph,2,2,0.007,99.894
+pr45,prohibitory (proibição/regulamentação),pr,2,2,0.007,99.901
+pcs,prohibitory (proibição/regulamentação),pcs,2,2,0.007,99.909
+p24,prohibitory (proibição/regulamentação),p,2,2,0.007,99.916
+ph4.4,prohibitory (proibição/regulamentação),ph,2,2,0.007,99.923
+pnlc,prohibitory (proibição/regulamentação),pnlc,2,2,0.007,99.931
+w28,warning (advertência, triangular),w,1,1,0.004,99.934
+w48,warning (advertência, triangular),w,1,1,0.004,99.938
+w5,warning (advertência, triangular),w,1,1,0.004,99.941
+pr5,prohibitory (proibição/regulamentação),pr,1,1,0.004,99.945
+w49,warning (advertência, triangular),w,1,1,0.004,99.949
+pa18,prohibitory (proibição/regulamentação),pa,1,1,0.004,99.952
+pa6,prohibitory (proibição/regulamentação),pa,1,1,0.004,99.956
+w44,warning (advertência, triangular),w,1,1,0.004,99.960
+w1,warning (advertência, triangular),w,1,1,0.004,99.963
+w62,warning (advertência, triangular),w,1,1,0.004,99.967
+pw4.2,prohibitory (proibição/regulamentação),pw,1,1,0.004,99.971
+pw2.5,prohibitory (proibição/regulamentação),pw,1,1,0.004,99.974
+pr10,prohibitory (proibição/regulamentação),pr,1,1,0.004,99.978
+pa8,prohibitory (proibição/regulamentação),pa,1,1,0.004,99.982
+p7,prohibitory (proibição/regulamentação),p,1,1,0.004,99.985
+w14,warning (advertência, triangular),w,1,1,0.004,99.989
+pclr,prohibitory (proibição/regulamentação),pclr,1,1,0.004,99.993
+w56,warning (advertência, triangular),w,1,1,0.004,99.996
+ph3.8,prohibitory (proibição/regulamentação),ph,1,1,0.004,100.000

@@ -1,0 +1,390 @@
+% =====================================================================
+%  DIFUSÃO — aumento de dados para detecção (varredura dedicada)
+%  Companheiro de references_final.bib. Foco: difusão importável para
+%  gerar/inserir PLACAS em cena e treinar detector (YOLO) sob cauda longa.
+%
+%  Abstracts VERBATIM (arXiv API / OpenAlex) salvo onde marcado.
+%  LEGENDA: [OK] verificado · [PARCIAL] abstract incompleto/ausente · [SUSPEITA] não citável.
+%  Ver análise em estado-da-arte-e-gaps.md §5.
+% =====================================================================
+
+
+% ---------------------------------------------------------------------
+%  A. DIFUSÃO COMO AUMENTO PARA DETECÇÃO (geral, importável)
+% ---------------------------------------------------------------------
+
+% [OK] ICLR 2024. Base conceitual (DA-Fusion): edição semântica por SD. AVALIA SÓ CLASSIFICAÇÃO few-shot, nao deteccao. Ponto de partida.
+@inproceedings{trabucco2024dafusion,
+  author    = {Trabucco, Brandon and Doherty, Kyle and Gurinas, Max and Salakhutdinov, Ruslan},
+  title     = {Effective Data Augmentation With Diffusion Models},
+  booktitle = {International Conference on Learning Representations (ICLR)},
+  year      = {2024},
+  eprint    = {2302.07944},
+  archivePrefix = {arXiv},
+  url       = {https://arxiv.org/abs/2302.07944},
+  abstract  = {Data augmentation is one of the most prevalent tools in deep learning, underpinning many recent advances, including those from classification, generative models, and representation learning. The standard approach to data augmentation combines simple transformations like rotations and flips to generate new images from existing ones. However, these new images lack diversity along key semantic axes present in the data. Current augmentations cannot alter the high-level semantic attributes, such as animal species present in a scene, to enhance the diversity of data. We address the lack of diversity in data augmentation with image-to-image transformations parameterized by pre-trained text-to-image diffusion models. Our method edits images to change their semantics using an off-the-shelf diffusion model, and generalizes to novel visual concepts from a few labelled examples. We evaluate our approach on few-shot image classification tasks, and on a real-world weed recognition task, and observe an improvement in accuracy in tested domains.}
+}
+
+% [OK] ICML 2023. Copy-paste com instancias geradas por Stable Diffusion + filtro CLIP; ganho grande em cauda-longa LVIS (+6.8 box AP em raras). Diretamente transferivel a placas raras.
+@inproceedings{zhao2023xpaste,
+  author    = {Zhao, Hanqing and Sheng, Dianmo and Bao, Jianmin and Chen, Dongdong and Chen, Dong and Wen, Fang and Yuan, Lu and Liu, Ce and Zhou, Wenbo and Chu, Qi and Zhang, Weiming and Yu, Nenghai},
+  title     = {{X-Paste}: Revisiting Scalable Copy-Paste for Instance Segmentation using {CLIP} and {StableDiffusion}},
+  booktitle = {Proceedings of the 40th International Conference on Machine Learning (ICML)},
+  year      = {2023},
+  eprint    = {2212.03863},
+  archivePrefix = {arXiv},
+  url       = {https://arxiv.org/abs/2212.03863},
+  abstract  = {Copy-Paste is a simple and effective data augmentation strategy for instance segmentation. By randomly pasting object instances onto new background images, it creates new training data for free and significantly boosts the segmentation performance, especially for rare object categories. Although diverse, high-quality object instances used in Copy-Paste result in more performance gain, previous works utilize object instances either from human-annotated instance segmentation datasets or rendered from 3D object models, and both approaches are too expensive to scale up to obtain good diversity. In this paper, we revisit Copy-Paste at scale with the power of newly emerged zero-shot recognition models (e.g., CLIP) and text2image models (e.g., StableDiffusion). We demonstrate for the first time that using a text2image model to generate images or zero-shot recognition model to filter noisily crawled images for different object categories is a feasible way to make Copy-Paste truly scalable. To make such success happen, we design a data acquisition and processing framework, dubbed ``X-Paste'', upon which a systematic study is conducted. On the LVIS dataset, X-Paste provides impressive improvements over the strong baseline CenterNet2 with Swin-L as the backbone. Specifically, it archives +2.6 box AP and +2.1 mask AP gains on all classes and even more significant gains with +6.8 box AP, +6.5 mask AP on long-tail classes.}
+}
+
+% [OK] arXiv 2023. Gera CENAS inteiras condicionadas (grounded) + filtragem imagem/instancia; melhora classes RARAS no LVIS (+2.13 box AP). Importavel p/ cauda de placas.
+@misc{suri2023gen2det,
+  author    = {Suri, Saksham and Xiao, Fanyi and Sinha, Animesh and Culatana, Sean Chang and Krishnamoorthi, Raghuraman and Zhu, Chenchen and Shrivastava, Abhinav},
+  title     = {{Gen2Det}: Generate to Detect},
+  year      = {2023},
+  eprint    = {2312.04566},
+  archivePrefix = {arXiv},
+  url       = {https://arxiv.org/abs/2312.04566},
+  abstract  = {Recently diffusion models have shown improvement in synthetic image quality as well as better control in generation. We motivate and present Gen2Det, a simple modular pipeline to create synthetic training data for object detection for free by leveraging state-of-the-art grounded image generation methods. Unlike existing works which generate individual object instances, require identifying foreground followed by pasting on other images, we simplify to directly generating scene-centric images. In addition to the synthetic data, Gen2Det also proposes a suite of techniques to best utilize the generated data, including image-level filtering, instance-level filtering, and better training recipe to account for imperfections in the generation. Using Gen2Det, we show healthy improvements on object detection and segmentation tasks under various settings and agnostic to detection methods. In the long-tailed detection setting on LVIS, Gen2Det improves the performance on rare categories by a large margin while also significantly improving the performance on other categories, e.g. we see an improvement of 2.13 Box AP and 1.84 Mask AP over just training on real data on LVIS with Mask R-CNN. In the low-data regime setting on COCO, Gen2Det consistently improves both Box and Mask AP by 2.27 and 1.85 points.}
+}
+
+% [OK] NeurIPS 2023. Decodifica o latente da difusao em anotacoes densas (masks/depth) treinando decoder com <1% de imagens rotuladas. Caminho p/ rotulo quase-gratis.
+@inproceedings{wu2023datasetdm,
+  author    = {Wu, Weijia and Zhao, Yuzhong and Chen, Hao and Gu, Yuchao and Zhao, Rui and He, Yefei and Zhou, Hong and Shou, Mike Zheng and Shen, Chunhua},
+  title     = {{DatasetDM}: Synthesizing Data with Perception Annotations Using Diffusion Models},
+  booktitle = {Advances in Neural Information Processing Systems (NeurIPS)},
+  year      = {2023},
+  eprint    = {2308.06160},
+  archivePrefix = {arXiv},
+  url       = {https://arxiv.org/abs/2308.06160},
+  abstract  = {Current deep networks are very data-hungry and benefit from training on large-scale datasets, which are often time-consuming to collect and annotate. By contrast, synthetic data can be generated infinitely using generative models such as DALL-E and diffusion models, with minimal effort and cost. In this paper, we present DatasetDM, a generic dataset generation model that can produce diverse synthetic images and the corresponding high-quality perception annotations (e.g., segmentation masks, and depth). Our method builds upon the pre-trained diffusion model and extends text-guided image synthesis to perception data generation. We show that the rich latent code of the diffusion model can be effectively decoded as accurate perception annotations using a decoder module. Training the decoder only needs less than 1\% (around 100 images) manually labeled images, enabling the generation of an infinitely large annotated dataset. Then these synthetic data can be used for training various perception models for downstream tasks. To showcase the power of the proposed approach, we generate datasets with rich dense pixel-wise labels for a wide range of downstream tasks, including semantic segmentation, instance segmentation, and depth estimation.}
+}
+
+% [OK] ICCV 2023. Extrai mascaras pixel-level do cross-attention do SD sem anotacao humana. Util se placas forem tratadas em nivel de mascara.
+@inproceedings{wu2023diffumask,
+  author    = {Wu, Weijia and Zhao, Yuzhong and Shou, Mike Zheng and Zhou, Hong and Shen, Chunhua},
+  title     = {{DiffuMask}: Synthesizing Images with Pixel-level Annotations for Semantic Segmentation Using Diffusion Models},
+  booktitle = {Proceedings of the IEEE/CVF International Conference on Computer Vision (ICCV)},
+  year      = {2023},
+  eprint    = {2303.11681},
+  archivePrefix = {arXiv},
+  url       = {https://arxiv.org/abs/2303.11681},
+  abstract  = {Collecting and annotating images with pixel-wise labels is time-consuming and laborious. In contrast, synthetic data can be freely available using a generative model (e.g., DALL-E, Stable Diffusion). In this paper, we show that it is possible to automatically obtain accurate semantic masks of synthetic images generated by the Off-the-shelf Stable Diffusion model, which uses only text-image pairs during training. Our approach, called DiffuMask, exploits the potential of the cross-attention map between text and image, which is natural and seamless to extend the text-driven image synthesis to semantic mask generation. DiffuMask uses text-guided cross-attention information to localize class/word-specific regions, which are combined with practical techniques to create a novel high-resolution and class-discriminative pixel-wise mask. The methods help to reduce data collection and annotation costs obviously. Experiments demonstrate that the existing segmentation methods trained on synthetic data of DiffuMask can achieve a competitive performance over the counterpart of real data (VOC 2012, Cityscapes).}
+}
+
+% [PARCIAL] WACV 2024. Difusao controlavel + filtro CLIP calibrado por categoria p/ deteccao. Abstract possivelmente truncado (via Amazon Science). DOI a conferir.
+@inproceedings{fang2024controlaug,
+  author    = {Fang, Haoyang and Han, Boran and Zhang, Shuai and Zhou, Su and Hu, Cuixiong and Ye, Wen-Ming},
+  title     = {Data Augmentation for Object Detection via Controllable Diffusion Models},
+  booktitle = {Proceedings of the IEEE/CVF Winter Conference on Applications of Computer Vision (WACV)},
+  pages     = {1257--1266},
+  year      = {2024},
+  doi       = {10.1109/WACV57701.2024.00128},
+  url       = {https://openaccess.thecvf.com/content/WACV2024/html/Fang_Data_Augmentation_for_Object_Detection_via_Controllable_Diffusion_Models_WACV_2024_paper.html},
+  abstract  = {Data augmentation is vital for object detection tasks that require expensive bounding box annotations. Recent successes in diffusion models have inspired the use of diffusion-based synthetic images for data augmentation. However, existing works have primarily focused on image classification, and their applicability to boost object detection's performance remains unclear. To address this gap, we propose a data augmentation pipeline based on controllable diffusion models and CLIP. Our approach involves generating appropriate visual priors to control the generation of synthetic data and implementing post-filtering techniques using category-calibrated CLIP scores.},
+  note      = {Abstract via Amazon Science, possivelmente truncado. Codigo: github.com/FANGAreNotGnu/ControlAug. DOI WACV inferido.}
+}
+
+% [OK] arXiv 2023 (Pattern Recognition 2025). Detection-Adapter alinha latente da difusao a sinais de bbox; gera par imagem+caixa em um estagio; ganhos cross-domain (Clipart +11.5%).
+@article{zhang2023diffusionengine,
+  author  = {Zhang, Manlin and Wu, Jie and Ren, Yuxi and Li, Ming and Qin, Jie and Xiao, Xuefeng and Liu, Wei and Wang, Rui and Zheng, Min and Ma, Andy J.},
+  title   = {{DiffusionEngine}: Diffusion Model is Scalable Data Engine for Object Detection},
+  journal = {arXiv preprint arXiv:2309.03893},
+  year    = {2023},
+  eprint  = {2309.03893},
+  archivePrefix = {arXiv},
+  url     = {https://arxiv.org/abs/2309.03893},
+  abstract = {Data is the cornerstone of deep learning. This paper reveals that the recently developed Diffusion Model is a scalable data engine for object detection. Existing methods for scaling up detection-oriented data often require manual collection or generative models to obtain target images, followed by data augmentation and labeling to produce training pairs, which are costly, complex, or lacking diversity. To address these issues, we present DiffusionEngine (DE), a data scaling-up engine that provides high-quality detection-oriented training pairs in a single stage. DE consists of a pre-trained diffusion model and an effective Detection-Adapter, contributing to generating scalable, diverse and generalizable detection data in a plug-and-play manner. Detection-Adapter is learned to align the implicit semantic and location knowledge in off-the-shelf diffusion models with detection-aware signals to make better bounding-box predictions. Additionally, we contribute two datasets, i.e., COCO-DE and VOC-DE, to scale up existing detection benchmarks. Extensive experiments demonstrate that data scaling-up via DE can achieve significant improvements in diverse scenarios. For example, when using DE with a DINO-based adapter to scale up data, mAP is improved by 3.1\% on COCO, 7.6\% on VOC, and 11.5\% on Clipart.},
+  note    = {NAO no RAG/cv_base (nao coletado; redundante com GeoDiffusion/DetDiffusion/ODGEN/Gen2Det). Citar via abstract se necessario.}
+}
+
+% [OK] CVPR 2024. Cabeca de grounding em nivel de instancia sobre difusao + self-training p/ categorias novas; open-vocabulary (+4.5 AP) e data-sparse (+1.2 a 5.2 AP).
+@inproceedings{feng2024instagen,
+  author    = {Feng, Chengjian and Zhong, Yujie and Jie, Zequn and Xie, Weidi and Ma, Lin},
+  title     = {{InstaGen}: Enhancing Object Detection by Training on Synthetic Dataset},
+  booktitle = {Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR)},
+  year      = {2024},
+  eprint    = {2402.05937},
+  archivePrefix = {arXiv},
+  url       = {https://arxiv.org/abs/2402.05937},
+  abstract  = {In this paper, we present a novel paradigm to enhance the ability of object detector, e.g., expanding categories or improving detection performance, by training on synthetic dataset generated from diffusion models. Specifically, we integrate an instance-level grounding head into a pre-trained, generative diffusion model, to augment it with the ability of localising instances in the generated images. The grounding head is trained to align the text embedding of category names with the regional visual feature of the diffusion model, using supervision from an off-the-shelf object detector, and a novel self-training scheme on (novel) categories not covered by the detector. We conduct thorough experiments to show that, this enhanced version of diffusion model, termed as InstaGen, can serve as a data synthesizer, to enhance object detectors by training on its generated samples, demonstrating superior performance over existing state-of-the-art methods in open-vocabulary (+4.5 AP) and data-sparse (+1.2 to 5.2 AP) scenarios.}
+}
+
+% [OK] NeurIPS 2024. Geracao condicionada a bboxes em DOMINIO ESPECIFICO (fine-tune em foregrounds+cenas); avaliado com YOLOv5/YOLOv7 (+25.3% mAP). O casamento mais direto com pipeline YOLO de placas.
+@inproceedings{zhu2024odgen,
+  author    = {Zhu, Jingyuan and Li, Shiyu and Liu, Yuxuan and Huang, Ping and Shan, Jiulong and Ma, Huimin and Yuan, Jian},
+  title     = {{ODGEN}: Domain-specific Object Detection Data Generation with Diffusion Models},
+  booktitle = {Advances in Neural Information Processing Systems (NeurIPS)},
+  year      = {2024},
+  eprint    = {2405.15199},
+  archivePrefix = {arXiv},
+  url       = {https://arxiv.org/abs/2405.15199},
+  abstract  = {Modern diffusion-based image generative models have made significant progress and become promising to enrich training data for the object detection task. However, the generation quality and the controllability for complex scenes containing multi-class objects and dense objects with occlusions remain limited. This paper presents ODGEN, a novel method to generate high-quality images conditioned on bounding boxes, thereby facilitating data synthesis for object detection. Given a domain-specific object detection dataset, we first fine-tune a pre-trained diffusion model on both cropped foreground objects and entire images to fit target distributions. Then we propose to control the diffusion model using synthesized visual prompts with spatial constraints and object-wise textual descriptions. ODGEN exhibits robustness in handling complex scenes and specific domains. Further, we design a dataset synthesis pipeline to evaluate ODGEN on 7 domain-specific benchmarks to demonstrate its effectiveness. Adding training data generated by ODGEN improves up to 25.3\% mAP@.50:.95 with object detectors like YOLOv5 and YOLOv7, outperforming prior controllable generative methods. In addition, we design an evaluation protocol based on COCO-2014 to validate ODGEN in general domains and observe an advantage up to 5.6\% in mAP@.50:.95 against existing methods.}
+}
+
+% [OK] arXiv 2025. Rectification guiada por regiao + cross-attention alinhada corrige content-position mismatch e vazamento semantico. Endereca artefatos que atrapalham objetos pequenos.
+@article{zhu2025recon,
+  author  = {Zhu, Haowei and Pan, Tianxiang and Qin, Rui and Yong, Jun-Hai and Wang, Bin},
+  title   = {{ReCon}: Region-Controllable Data Augmentation with Rectification and Alignment for Object Detection},
+  journal = {arXiv preprint arXiv:2510.15783},
+  year    = {2025},
+  eprint  = {2510.15783},
+  archivePrefix = {arXiv},
+  url     = {https://arxiv.org/abs/2510.15783},
+  abstract = {The scale and quality of datasets are crucial for training robust perception models. However, obtaining large-scale annotated data is both costly and time-consuming. Generative models have emerged as a powerful tool for data augmentation by synthesizing samples that adhere to desired distributions. However, current generative approaches often rely on complex post-processing or extensive fine-tuning on massive datasets to achieve satisfactory results, and they remain prone to content-position mismatches and semantic leakage. To overcome these limitations, we introduce ReCon, a novel augmentation framework that enhances the capacity of structure-controllable generative models for object detection. ReCon integrates region-guided rectification into the diffusion sampling process, using feedback from a pre-trained perception model to rectify misgenerated regions within diffusion sampling process. We further propose region-aligned cross-attention to enforce spatial-semantic alignment between image regions and their textual cues, thereby improving both semantic consistency and overall image fidelity.}
+}
+
+% [OK] arXiv 2024. Category Affinity Matrix (diversidade) + Surrounding Region Alignment (coordenacao semantica); +1.4/+0.9/+3.4 AP em 3 detectores.
+@misc{nie2024diverse,
+  author    = {Nie, Sen and Wang, Zhuo and Wang, Xinxin and He, Kun},
+  title     = {Diverse Generation while Maintaining Semantic Coordination: A Diffusion-Based Data Augmentation Method for Object Detection},
+  year      = {2024},
+  eprint    = {2408.02891},
+  archivePrefix = {arXiv},
+  url       = {https://arxiv.org/abs/2408.02891},
+  abstract  = {Recent studies emphasize the crucial role of data augmentation in enhancing the performance of object detection models. However, existing methodologies often struggle to effectively harmonize dataset diversity with semantic coordination. To bridge this gap, we introduce an innovative augmentation technique leveraging pre-trained conditional diffusion models to mediate this balance. Our approach encompasses the development of a Category Affinity Matrix, meticulously designed to enhance dataset diversity, and a Surrounding Region Alignment strategy, which ensures the preservation of semantic coordination in the augmented images. Extensive experimental evaluations confirm the efficacy of our method in enriching dataset diversity while seamlessly maintaining semantic coordination. Our method yields substantial average improvements of +1.4AP, +0.9AP, and +3.4AP over existing alternatives on three distinct object detection models, respectively.}
+}
+
+
+% ---------------------------------------------------------------------
+%  B. CONTROLE ESPACIAL / LAYOUT-TO-IMAGE / CENAS DE DIREÇÃO
+% ---------------------------------------------------------------------
+
+% [OK] ICCV 2023. Condicionamento espacial (edge/depth/seg/pose) de difusao. Mecanismo-base p/ inserir placa via mascara/canny/segmentacao.
+@inproceedings{zhang2023controlnet,
+  author    = {Zhang, Lvmin and Rao, Anyi and Agrawala, Maneesh},
+  title     = {Adding Conditional Control to Text-to-Image Diffusion Models},
+  booktitle = {Proceedings of the IEEE/CVF International Conference on Computer Vision (ICCV)},
+  year      = {2023},
+  eprint    = {2302.05543},
+  archivePrefix = {arXiv},
+  url       = {https://arxiv.org/abs/2302.05543},
+  abstract  = {We present ControlNet, a neural network architecture to add spatial conditioning controls to large, pretrained text-to-image diffusion models. ControlNet locks the production-ready large diffusion models, and reuses their deep and robust encoding layers pretrained with billions of images as a strong backbone to learn a diverse set of conditional controls. The neural architecture is connected with "zero convolutions" (zero-initialized convolution layers) that progressively grow the parameters from zero and ensure that no harmful noise could affect the finetuning. We test various conditioning controls, eg, edges, depth, segmentation, human pose, etc, with Stable Diffusion, using single or multiple conditions, with or without prompts. We show that the training of ControlNets is robust with small (<50k) and large (>1m) datasets.}
+}
+
+% [OK] CVPR 2023. Geracao condicionada a BOUNDING BOX + caption (grounded). Permite pedir "placa em [x,y,w,h]" numa cena.
+@inproceedings{li2023gligen,
+  author    = {Li, Yuheng and Liu, Haotian and Wu, Qingyang and Mu, Fangzhou and Yang, Jianwei and Gao, Jianfeng and Li, Chunyuan and Lee, Yong Jae},
+  title     = {{GLIGEN}: Open-Set Grounded Text-to-Image Generation},
+  booktitle = {Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR)},
+  year      = {2023},
+  eprint    = {2301.07093},
+  archivePrefix = {arXiv},
+  url       = {https://arxiv.org/abs/2301.07093},
+  abstract  = {Large-scale text-to-image diffusion models have made amazing advances. However, the status quo is to use text input alone, which can impede controllability. In this work, we propose GLIGEN, Grounded-Language-to-Image Generation, a novel approach that builds upon and extends the functionality of existing pre-trained text-to-image diffusion models by enabling them to also be conditioned on grounding inputs. To preserve the vast concept knowledge of the pre-trained model, we freeze all of its weights and inject the grounding information into new trainable layers via a gated mechanism. Our model achieves open-world grounded text2img generation with caption and bounding box condition inputs, and the grounding ability generalizes well to novel spatial configurations and concepts. GLIGEN's zero-shot performance on COCO and LVIS outperforms that of existing supervised layout-to-image baselines by a large margin.}
+}
+
+% [OK] ICLR 2024. PRIMEIRO L2I por difusao com condicoes geometricas (boxes+camera) provado util p/ treinar detectores. Alvo central p/ gerar placas com box.
+@inproceedings{chen2024geodiffusion,
+  author    = {Chen, Kai and Xie, Enze and Chen, Zhe and Wang, Yibo and Hong, Lanqing and Li, Zhenguo and Yeung, Dit-Yan},
+  title     = {{GeoDiffusion}: Text-Prompted Geometric Control for Object Detection Data Generation},
+  booktitle = {International Conference on Learning Representations (ICLR)},
+  year      = {2024},
+  eprint    = {2306.04607},
+  archivePrefix = {arXiv},
+  url       = {https://arxiv.org/abs/2306.04607},
+  abstract  = {Diffusion models have attracted significant attention due to the remarkable ability to create content and generate data for tasks like image classification. However, the usage of diffusion models to generate the high-quality object detection data remains an underexplored area, where not only image-level perceptual quality but also geometric conditions such as bounding boxes and camera views are essential. Previous studies have utilized either copy-paste synthesis or layout-to-image (L2I) generation with specifically designed modules to encode the semantic layouts. In this paper, we propose the GeoDiffusion, a simple framework that can flexibly translate various geometric conditions into text prompts and empower pre-trained text-to-image (T2I) diffusion models for high-quality detection data generation. Unlike previous L2I methods, our GeoDiffusion is able to encode not only the bounding boxes but also extra geometric conditions such as camera views in self-driving scenes. Extensive experiments demonstrate GeoDiffusion outperforms previous L2I methods while maintaining 4x training time faster. To the best of our knowledge, this is the first work to adopt diffusion models for layout-to-image generation with geometric conditions and demonstrate that L2I-generated images can be beneficial for improving the performance of object detectors.}
+}
+
+% [OK] CVPR 2024. L2I por difusao com perception-aware loss/atributos; SOTA em geracao guiada por layout que melhora deteccao downstream.
+@inproceedings{wang2024detdiffusion,
+  author    = {Wang, Yibo and Gao, Ruiyuan and Chen, Kai and Zhou, Kaiqiang and Cai, Yingjie and Hong, Lanqing and Li, Zhenguo and Jiang, Lihui and Yeung, Dit-Yan and Xu, Qiang and Zhang, Kai},
+  title     = {{DetDiffusion}: Synergizing Generative and Perceptive Models for Enhanced Data Generation and Perception},
+  booktitle = {Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR)},
+  year      = {2024},
+  eprint    = {2403.13304},
+  archivePrefix = {arXiv},
+  url       = {https://arxiv.org/abs/2403.13304},
+  abstract  = {Current perceptive models heavily depend on resource-intensive datasets, prompting the need for innovative solutions. Leveraging recent advances in diffusion models, synthetic data, by constructing image inputs from various annotations, proves beneficial for downstream tasks. While prior methods have separately addressed generative and perceptive models, DetDiffusion, for the first time, harmonizes both, tackling the challenges in generating effective data for perceptive models. To enhance image generation with perceptive models, we introduce perception-aware loss (P.A. loss) through segmentation, improving both quality and controllability. To boost the performance of specific perceptive models, our method customizes data augmentation by extracting and utilizing perception-aware attribute (P.A. Attr) during generation. Experimental results from the object detection task highlight DetDiffusion's superior performance, establishing a new state-of-the-art in layout-guided generation. Furthermore, image syntheses from DetDiffusion can effectively augment training data, significantly enhancing downstream detection performance.}
+}
+
+% [OK] ICLR 2024. Street-view multi-camera com controle 3D (poses, mapa, boxes 3D). Gera cena de trafego, mas exige anotacao 3D/BEV (contexto, nao insercao de placa 2D).
+@inproceedings{gao2024magicdrive,
+  author    = {Gao, Ruiyuan and Chen, Kai and Xie, Enze and Hong, Lanqing and Li, Zhenguo and Yeung, Dit-Yan and Xu, Qiang},
+  title     = {{MagicDrive}: Street View Generation with Diverse 3D Geometry Control},
+  booktitle = {International Conference on Learning Representations (ICLR)},
+  year      = {2024},
+  eprint    = {2310.02601},
+  archivePrefix = {arXiv},
+  url       = {https://arxiv.org/abs/2310.02601},
+  abstract  = {Recent advancements in diffusion models have significantly enhanced the data synthesis with 2D control. Yet, precise 3D control in street view generation, crucial for 3D perception tasks, remains elusive. Specifically, utilizing Bird's-Eye View (BEV) as the primary condition often leads to challenges in geometry control (e.g., height), affecting the representation of object shapes, occlusion patterns, and road surface elevations, all of which are essential to perception data synthesis, especially for 3D object detection tasks. In this paper, we introduce MagicDrive, a novel street view generation framework, offering diverse 3D geometry controls including camera poses, road maps, and 3D bounding boxes, together with textual descriptions, achieved through tailored encoding strategies. Besides, our design incorporates a cross-view attention module, ensuring consistency across multiple camera views. With MagicDrive, we achieve high-fidelity street-view image & video synthesis that captures nuanced 3D geometry and various scene descriptions, enhancing tasks like BEV segmentation and 3D object detection.}
+}
+
+% [OK] arXiv 2023. Geracao de VIDEO multi-camera guiada por layout 3D. Relevante se P3 evoluir p/ video; menos p/ imagem unica.
+@article{li2023drivingdiffusion,
+  author  = {Li, Xiaofan and Zhang, Yifu and Ye, Xiaoqing},
+  title   = {{DrivingDiffusion}: Layout-Guided Multi-View Driving Scene Video Generation with Latent Diffusion Model},
+  journal = {arXiv preprint arXiv:2310.07771},
+  year    = {2023},
+  eprint  = {2310.07771},
+  archivePrefix = {arXiv},
+  url     = {https://arxiv.org/abs/2310.07771},
+  abstract = {With the increasing popularity of autonomous driving based on the powerful and unified bird's-eye-view (BEV) representation, a demand for high-quality and large-scale multi-view video data with accurate annotation is urgently required. However, such large-scale multi-view data is hard to obtain due to expensive collection and annotation costs. To alleviate the problem, we propose a spatial-temporal consistent diffusion framework DrivingDiffusion, to generate realistic multi-view videos controlled by 3D layout. There are three challenges when synthesizing multi-view videos given a 3D layout: How to keep cross-view consistency and cross-frame consistency, and how to guarantee the quality of the generated instances. Our DrivingDiffusion solves the problem by cascading the multi-view single-frame image generation step, the single-view video generation step shared by multiple cameras, and post-processing. We also introduce the local prompt to effectively improve the quality of generated instances.}
+}
+
+% [OK] IEEE RA-L 2024. Street-view condicionado a layout BEV/HD-map. Fundamentacao de geracao de cena controlavel (nao insercao de placa por box 2D).
+@article{swerdlow2023bevgen,
+  author  = {Swerdlow, Alexander and Xu, Runsheng and Zhou, Bolei},
+  title   = {Street-View Image Generation from a Bird's-Eye View Layout},
+  journal = {IEEE Robotics and Automation Letters (RA-L)},
+  year    = {2024},
+  eprint  = {2301.04634},
+  archivePrefix = {arXiv},
+  url     = {https://arxiv.org/abs/2301.04634},
+  abstract = {Bird's-Eye View (BEV) Perception has received increasing attention in recent years as it provides a concise and unified spatial representation across views and benefits a diverse set of downstream driving applications. At the same time, data-driven simulation for autonomous driving has been a focal point of recent research but with few approaches that are both fully data-driven and controllable. Instead of using perception data from real-life scenarios, an ideal model for simulation would generate realistic street-view images that align with a given HD map and traffic layout, a task that is critical for visualizing complex traffic scenarios and developing robust perception models for autonomous driving. In this paper, we propose BEVGen, a conditional generative model that synthesizes a set of realistic and spatially consistent surrounding images that match the BEV layout of a traffic scenario. BEVGen incorporates a novel cross-view transformation with spatial attention design which learns the relationship between cameras and map views to ensure their consistency.}
+}
+
+% [OK] arXiv 2023. Street-view controlado por sketch/layout BEV com foco em fidelidade de foreground; supera BEVGen.
+@article{yang2023bevcontrol,
+  author  = {Yang, Kairui and Ma, Enhui and Peng, Jibin and Guo, Qing and Lin, Di and Yu, Kaicheng},
+  title   = {{BEVControl}: Accurately Controlling Street-view Elements with Multi-perspective Consistency via BEV Sketch Layout},
+  journal = {arXiv preprint arXiv:2308.01661},
+  year    = {2023},
+  eprint  = {2308.01661},
+  archivePrefix = {arXiv},
+  url     = {https://arxiv.org/abs/2308.01661},
+  abstract = {Using synthesized images to boost the performance of perception models is a long-standing research challenge in computer vision. It becomes more eminent in visual-centric autonomous driving systems with multi-view cameras as some long-tail scenarios can never be collected. Guided by the BEV segmentation layouts, the existing generative networks seem to synthesize photo-realistic street-view images when evaluated solely on scene-level metrics. However, once zoom-in, they usually fail to produce accurate foreground and background details such as heading. To this end, we propose a two-stage generative method, dubbed BEVControl, that can generate accurate foreground and background contents. In contrast to segmentation-like input, it also supports sketch style input, which is more flexible for humans to edit. In addition, we propose a comprehensive multi-level evaluation protocol to fairly compare the quality of the generated scene, foreground object, and background geometry.}
+}
+
+% [OK] CVPR 2024. Video panoramico multi-camera controlavel (ControlNet+BEV) p/ direcao; foco em percepcao 3D (contexto de cena).
+@inproceedings{wen2024panacea,
+  author    = {Wen, Yuqing and Zhao, Yucheng and Liu, Yingfei and Jia, Fan and Wang, Yanhui and Luo, Chong and Zhang, Chi and Wang, Tiancai and Sun, Xiaoyan and Zhang, Xiangyu},
+  title     = {{Panacea}: Panoramic and Controllable Video Generation for Autonomous Driving},
+  booktitle = {Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR)},
+  year      = {2024},
+  eprint    = {2311.16813},
+  archivePrefix = {arXiv},
+  url       = {https://arxiv.org/abs/2311.16813},
+  abstract  = {The field of autonomous driving increasingly demands high-quality annotated training data. In this paper, we propose Panacea, an innovative approach to generate panoramic and controllable videos in driving scenarios, capable of yielding an unlimited numbers of diverse, annotated samples pivotal for autonomous driving advancements. Panacea addresses two critical challenges: 'Consistency' and 'Controllability.' Consistency ensures temporal and cross-view coherence, while Controllability ensures the alignment of generated content with corresponding annotations. Our approach integrates a novel 4D attention and a two-stage generation pipeline to maintain coherence, supplemented by the ControlNet framework for meticulous control by the Bird's-Eye-View (BEV) layouts.}
+}
+
+
+% ---------------------------------------------------------------------
+%  C. INSERÇÃO POR INPAINTING / SMALL-OBJECT / LONG-TAIL / TRÁFEGO
+% ---------------------------------------------------------------------
+
+% [OK] arXiv 2025. Modela ONDE inserir objetos (location model) + inpainting; SOTA de aumento generativo em deteccao automotiva (ate 2.8x sobre baseline). Resolve posicionamento realista de placas.
+@article{petersen2025sceneaware,
+  author  = {Petersen, Jens and Abati, Davide and Habibian, Amirhossein and Wiggers, Auke},
+  title   = {Scene-Aware Location Modeling for Data Augmentation in Automotive Object Detection},
+  journal = {arXiv preprint arXiv:2504.17076},
+  year    = {2025},
+  eprint  = {2504.17076},
+  archivePrefix = {arXiv},
+  url     = {https://arxiv.org/abs/2504.17076},
+  abstract = {Generative image models are increasingly being used for training data augmentation in vision tasks. In the context of automotive object detection, methods usually focus on producing augmented frames that look as realistic as possible, for example by replacing real objects with generated ones. Others try to maximize the diversity of augmented frames, for example by pasting lots of generated objects onto existing backgrounds. Both perspectives pay little attention to the locations of objects in the scene. Frame layouts are either reused with little or no modification, or they are random and disregard realism entirely. In this work, we argue that optimal data augmentation should also include realistic augmentation of layouts. We introduce a scene-aware probabilistic location model that predicts where new objects can realistically be placed in an existing scene. By then inpainting objects in these locations with a generative model, we obtain much stronger augmentation performance than existing approaches. We set a new state of the art for generative data augmentation on two automotive object detection tasks, achieving up to $2.8\times$ higher gains than the best competing approach ($+1.4$ vs. $+0.5$ mAP boost). We also demonstrate significant improvements for instance segmentation.}
+}
+
+% [OK] CVPRW 2025 (DDADS). Inpainting multimodal (camera+LiDAR) condicionado por 3D box; insere objeto em local/escala corretos. Padrao de insercao controlada.
+@inproceedings{buburuzan2025mobi,
+  author    = {Buburuzan, Alexandru and Sharma, Anuj and Redford, John and Dokania, Puneet K. and Mueller, Romain},
+  title     = {{MObI}: Multimodal Object Inpainting Using Diffusion Models},
+  booktitle = {IEEE/CVF CVPR Workshops (DDADS)},
+  year      = {2025},
+  eprint    = {2501.03173},
+  archivePrefix = {arXiv},
+  url       = {https://arxiv.org/abs/2501.03173},
+  abstract  = {Safety-critical applications, such as autonomous driving, require extensive multimodal data for rigorous testing. Methods based on synthetic data are gaining prominence due to the cost and complexity of gathering real-world data but require a high degree of realism and controllability in order to be useful. This paper introduces MObI, a novel framework for Multimodal Object Inpainting that leverages a diffusion model to create realistic and controllable object inpaintings across perceptual modalities, demonstrated for both camera and lidar simultaneously. Using a single reference RGB image, MObI enables objects to be seamlessly inserted into existing multimodal scenes at a 3D location specified by a bounding box, while maintaining semantic consistency and multimodal coherence. Unlike traditional inpainting methods that rely solely on edit masks, our 3D bounding box conditioning gives objects accurate spatial positioning and realistic scaling.}
+}
+
+% [OK] arXiv 2024. "Erase, then Redraw": apaga objeto real e redesenha via difusao t2i; deteccao (KITTI road). Padrao erase+inpaint diretamente aplicavel a placas.
+@misc{ma2024erase,
+  author    = {Ma, Fulong and Qi, Weiqing and Zhao, Guoyang and Liu, Ming and Ma, Jun},
+  title     = {Erase, then Redraw: A Novel Data Augmentation Approach for Free Space Detection Using Diffusion Model},
+  year      = {2024},
+  eprint    = {2409.20164},
+  archivePrefix = {arXiv},
+  url       = {https://arxiv.org/abs/2409.20164},
+  abstract  = {Data augmentation is one of the most common tools in deep learning, underpinning many recent advances including tasks such as classification, detection, and semantic segmentation. The standard approach to data augmentation involves simple transformations like rotation and flipping to generate new images. However, these new images often lack diversity along the main semantic dimensions within the data. Traditional data augmentation methods cannot alter high-level semantic attributes such as the presence of vehicles, trees, and buildings in a scene to enhance data diversity. In recent years, the rapid development of generative models has injected new vitality into the field of data augmentation. In this paper, we address the lack of diversity in data augmentation for road detection task by using a pre-trained text-to-image diffusion model to parameterize image-to-image transformations. Our method involves editing images using these diffusion models to change their semantics. In essence, we achieve this goal by erasing instances of real objects from the original dataset and generating new instances with similar semantics in the erased regions using the diffusion model, thereby expanding the original dataset. We evaluate our approach on the KITTI road dataset and achieve the best results compared to other data augmentation methods.}
+}
+
+% [OK] arXiv 2024. Difusao p/ SMALL-OBJECT (alvos infravermelhos pequenos): Pixel-Prior + Diff-Prior p/ realismo/diversidade. Relevante ao vies small-object.
+@misc{shi2024diffmosaic,
+  author    = {Shi, Yukai and Lin, Yupei and Wei, Pengxu and Xian, Xiaoyu and Chen, Tianshui and Lin, Liang},
+  title     = {{Diff-Mosaic}: Augmenting Realistic Representations in Infrared Small Target Detection via Diffusion Prior},
+  year      = {2024},
+  eprint    = {2406.00632},
+  archivePrefix = {arXiv},
+  url       = {https://arxiv.org/abs/2406.00632},
+  abstract  = {Recently, researchers have proposed various deep learning methods to accurately detect infrared targets with the characteristics of indistinct shape and texture. Due to the limited variety of infrared datasets, training deep learning models with good generalization poses a challenge. To augment the infrared dataset, researchers employ data augmentation techniques, which often involve generating new images by combining images from different datasets. However, these methods are lacking in realism and diversity. Currently, the diffusion model stands out as an innovative generative approach. In this paper, we propose Diff-Mosaic, a data augmentation method based on the diffusion model. This model effectively alleviates the challenge of diversity and realism of data augmentation methods via diffusion prior. Specifically, our method consists of two stages. Firstly, we introduce an enhancement network called Pixel-Prior, which generates highly coordinated and realistic Mosaic images by harmonizing pixels. In the second stage, we propose an image enhancement strategy named Diff-Prior. This strategy utilizes diffusion priors to model images in the real-world scene, further enhancing the diversity and realism of the images.}
+}
+
+% [OK] arXiv 2025. LONG-TAIL em direcao: difusao remove head-class + insere tail-class + filtro LLM; +34.75% em raras no KITTI (deteccao 3D). Contexto de trafego.
+@misc{yurt2025ltdadrive,
+  author    = {Yurt, Mahmut and Ye, Xin and Ma, Yunsheng and Luo, Jingru and Mallik, Abhirup and Pauly, John and Yaman, Burhaneddin and Ren, Liu},
+  title     = {{LTDA-Drive}: LLMs-guided Generative Models based Long-tail Data Augmentation for Autonomous Driving},
+  year      = {2025},
+  eprint    = {2505.18198},
+  archivePrefix = {arXiv},
+  url       = {https://arxiv.org/abs/2505.18198},
+  abstract  = {3D perception plays an essential role for improving the safety and performance of autonomous driving. Yet, existing models trained on real-world datasets, which naturally exhibit long-tail distributions, tend to underperform on rare and safety-critical, vulnerable classes, such as pedestrians and cyclists. Existing studies on reweighting and resampling techniques struggle with the scarcity and limited diversity within tail classes. To address these limitations, we introduce LTDA-Drive, a novel LLM-guided data augmentation framework designed to synthesize diverse, high-quality long-tail samples. LTDA-Drive replaces head-class objects in driving scenes with tail-class objects through a three-stage process: (1) text-guided diffusion models remove head-class objects, (2) generative models insert instances of the tail classes, and (3) an LLM agent filters out low-quality synthesized images. Experiments conducted on the KITTI dataset show that LTDA-Drive significantly improves tail-class detection, achieving 34.75\% improvement for rare classes over counterpart methods.}
+}
+
+% [OK] arXiv 2024. Difusao guiada (LoRA) p/ deteccao de classes raras como OOD em histopatologia (10 amostras/classe). Estrategia long-tail transferivel; dominio medico.
+@misc{mueller2024logex,
+  author    = {Mueller, Maximilian and Hein, Matthias},
+  title     = {{LoGex}: Improved tail detection of extremely rare histopathology classes via guided diffusion},
+  year      = {2024},
+  eprint    = {2409.01317},
+  archivePrefix = {arXiv},
+  url       = {https://arxiv.org/abs/2409.01317},
+  abstract  = {In realistic medical settings, the data are often inherently long-tailed, with most samples concentrated in a few classes and a long tail of rare classes, usually containing just a few samples. This distribution presents a significant challenge because rare conditions are critical to detect and difficult to classify due to limited data. In this paper, rather than attempting to classify rare classes, we aim to detect these as out-of-distribution data reliably. We leverage low-rank adaption (LoRA) and diffusion guidance to generate targeted synthetic data for the detection problem. We significantly improve the OOD detection performance on a challenging histopathological task with only ten samples per tail class without losing classification accuracy on the head classes.}
+}
+
+% [OK] arXiv 2023. Difusao fecha sim2real p/ deteccao de PEDESTRES (+27.3% AP). Trafego, mas objeto = pedestre, nao placa.
+@misc{farley2023diffusion,
+  author    = {Farley, Andrew and Zand, Mohsen and Greenspan, Michael},
+  title     = {Diffusion Dataset Generation: Towards Closing the Sim2Real Gap for Pedestrian Detection},
+  year      = {2023},
+  eprint    = {2305.09401},
+  archivePrefix = {arXiv},
+  url       = {https://arxiv.org/abs/2305.09401},
+  abstract  = {We propose a method that augments a simulated dataset using diffusion models to improve the performance of pedestrian detection in real-world data. The high cost of collecting and annotating data in the real-world has motivated the use of simulation platforms to create training datasets. While simulated data is inexpensive to collect and annotate, it unfortunately does not always closely match the distribution of real-world data, which is known as the sim2real gap. In this paper we propose a novel method of synthetic data creation meant to close the sim2real gap for the challenging pedestrian detection task. Our method uses a diffusion-based architecture to learn a real-world distribution which, once trained, is used to generate datasets. We mix this generated data with simulated data as a form of augmentation and show that training on a combination of generated and simulated data increases average precision by as much as 27.3\% for pedestrian detection models in real-world data, compared against training on purely simulated data.}
+}
+
+% [OK] MDPI AI 2026 vol 7(5):153. Pipeline detecta->remove->reinsere VEICULOS via inpainting por difusao, com anotacao automatica de deteccao; prompting lane-aware. Template metodologico quase 1:1 p/ placas — mas objeto gerado = VEICULO, nao placa.
+@article{gachulinec2026trafficsynth,
+  author  = {Gachulinec, Daniel and Cvacho, Vikt{\'o}ria and Jakubec, Maro{\v{s}} and Madle{\v{n}}{\'a}k, Radovan},
+  title   = {Automated Synthetic Traffic Dataset Generation via Diffusion-Based Inpainting Pipeline},
+  journal = {AI},
+  publisher = {MDPI},
+  volume  = {7},
+  number  = {5},
+  pages   = {153},
+  year    = {2026},
+  doi     = {10.3390/ai7050153},
+  url     = {https://doi.org/10.3390/ai7050153},
+  abstract = {Building reliable vehicle detection models for intelligent transportation systems requires large, well-annotated datasets, yet gathering and labelling real traffic data remains both costly and labour-intensive. This paper introduces Traffic Synth, an automated pipeline that generates synthetic training datasets by altering traffic camera images rather than constructing entirely artificial scenes. The system begins by detecting vehicles through instance segmentation and removing them from frames. It then places new vehicles directly into cleared regions using diffusion-based inpainting, all while retaining the original road layout, lighting, and perspective. To ensure resulting traffic looks physically plausible, the approach incorporates a lane-aware prompting mechanism that matches each vehicle's orientation to direction of travel as seen from the camera. The system further draws on a weighted vehicle brand database that mirrors makes and colours commonly found on European roads. Class-specific mask processing involving anisotropic scaling and relative dilation rounds out the pipeline. The final output is a set of images with automatically generated annotations in standard object detection format.}
+}
+
+
+% ---------------------------------------------------------------------
+%  D. SURVEY
+% ---------------------------------------------------------------------
+
+% [OK] arXiv 2024. Survey abrangente de difusao p/ aumento de imagens: taxonomia, metricas, direcoes futuras. Enquadramento geral.
+@article{alimisis2024advances,
+  author  = {Alimisis, Panagiotis and Mademlis, Ioannis and Radoglou-Grammatikis, Panagiotis and Sarigiannidis, Panagiotis and Papadopoulos, Georgios Th.},
+  title   = {Advances in Diffusion Models for Image Data Augmentation: A Review of Methods, Models, Evaluation Metrics and Future Research Directions},
+  journal = {arXiv preprint arXiv:2407.04103},
+  year    = {2024},
+  eprint  = {2407.04103},
+  archivePrefix = {arXiv},
+  url     = {https://arxiv.org/abs/2407.04103},
+  abstract = {Image data augmentation constitutes a critical methodology in modern computer vision tasks, since it can facilitate towards enhancing the diversity and quality of training datasets; thereby, improving the performance and robustness of machine learning models in downstream tasks. In parallel, augmentation approaches can also be used for editing/modifying a given image in a context- and semantics-aware way. Diffusion Models (DMs), which comprise one of the most recent and highly promising classes of methods in the field of generative Artificial Intelligence (AI), have emerged as a powerful tool for image data augmentation, capable of generating realistic and diverse images by learning the underlying data distribution. The current study realizes a systematic, comprehensive and in-depth review of DM-based approaches for image augmentation, covering a wide range of strategies, tasks and applications.}
+}
+
+
+% ---------------------------------------------------------------------
+%  E. PISTA NÃO VERIFICÁVEL (não citar sem confirmar fonte primária)
+% ---------------------------------------------------------------------
+% Item recorrente em buscas: SD inpainting gerando PLACAS no dataset DFG
+% (subsets DFG-T10/DFG-B10, tecnica "OSB-crop", FID 195.85 / 247.077).
+% NAO localizado titulo/arXiv/DOI em arXiv API, Semantic Scholar nem no survey
+% MDPI. Avaliacao relatada = FID + qualitativa, SEM mAP de deteccao. Provavel
+% tese/relatorio nao indexado. Confirmar manualmente (Google Scholar:
+% "OSB-crop traffic sign diffusion") antes de qualquer citacao.
+%
+% NOTA: konushin2021road (em references_final.bib) e o trabalho MAIS PROXIMO do
+% alvo (inserir placas raras em fotos reais -> melhora detector), mas usa GAN/VAE,
+% NAO difusao. Citar como precedente da tarefa.
