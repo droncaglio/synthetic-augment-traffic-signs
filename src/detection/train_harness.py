@@ -22,20 +22,44 @@ from pathlib import Path
 BASELINE_ARMS = frozenset({"zero_aug", "da_only"})
 
 
-def resolve_arm_train_dir(arm: str, tiles_dir: str | Path) -> Path:
-    """Train-image dir for an arm. Baselines use raw train tiles; content arms MUST
-    have Stage-2 synthetic tiles — raise otherwise (never silently train a content arm
-    on raw tiles, which would be a zero_aug run mislabeled as that arm)."""
+def resolve_arm_train_dirs(arm: str, tiles_dir: str | Path) -> list[Path]:
+    """Train-image dir(s) for an arm. Baselines use raw train tiles; content arms use
+    the raw train tiles PLUS their synthetic tiles (dataset.yaml lists both). Content
+    arms MUST have Stage-2 tiles — raise otherwise (never silently train a content arm
+    on raw tiles only, which would be a zero_aug run mislabeled as that arm)."""
     tiles_dir = Path(tiles_dir)
+    train = tiles_dir / "train" / "images"
     if arm in BASELINE_ARMS:
-        return tiles_dir / "train" / "images"
-    combined = tiles_dir / "arms" / arm / "images"
-    if combined.exists():
-        return combined
+        return [train]
+    synth = tiles_dir / "arms" / arm / "images"
+    if synth.exists():
+        return [train, synth]  # real + synthetic
     raise FileNotFoundError(
-        f"arm '{arm}' has no synthetic tiles at {combined} — run the Stage-2 generator "
+        f"arm '{arm}' has no synthetic tiles at {synth} — run the Stage-2 generator "
         f"first (refusing to train it on raw tiles as a mislabeled zero_aug)."
     )
+
+
+def loss_plateaued(results_csv: str | Path, last_k: int = 5,
+                   rel_drop_tol: float = 0.02) -> tuple[bool, dict]:
+    """Val-free convergence check from Ultralytics results.csv (train loss).
+
+    Returns (plateaued, info). plateaued=True if the total train loss dropped by less
+    than rel_drop_tol (relative) over the last `last_k` epochs — i.e. training flattened
+    within the fixed budget. Lets every grid run self-report convergence without val.
+    """
+    import csv
+    rows = list(csv.DictReader(open(results_csv)))
+    loss_keys = [k for k in (rows[0].keys() if rows else [])
+                 if "train/" in k and "loss" in k]
+    if len(rows) < last_k + 1 or not loss_keys:
+        return True, {"note": "too few epochs / no loss cols to judge"}
+    losses = [sum(float(r[k]) for k in loss_keys) for r in rows]
+    window = losses[-last_k - 1:]
+    rel_drop = (window[0] - window[-1]) / max(abs(window[0]), 1e-9)
+    return (rel_drop < rel_drop_tol,
+            {"final_loss": round(losses[-1], 4), "recent_rel_drop": round(rel_drop, 4),
+             "last_k": last_k, "n_epochs": len(losses)})
 
 
 def steps_per_epoch(n_tiles: int, batch: int) -> int:

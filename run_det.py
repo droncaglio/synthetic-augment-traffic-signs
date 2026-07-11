@@ -25,7 +25,8 @@ import yaml
 
 sys.path.insert(0, str(Path(__file__).resolve().parent / "src"))
 from detection.train_harness import (
-    equalized_plan, total_steps_from_reference, train_arm, resolve_arm_train_dir,
+    equalized_plan, total_steps_from_reference, train_arm, resolve_arm_train_dirs,
+    loss_plateaued,
 )
 from detection.reconstruct import reconstruct_panorama
 from detection.evaluate import evaluate_split
@@ -45,13 +46,14 @@ def _count_images(d: Path) -> int:
     return sum(1 for _ in d.glob("*.jpg")) if d.exists() else 0
 
 
-def build_dataset_yaml(tiles_dir: Path, train_images: Path, subset: dict, out: Path) -> Path:
-    """Write an Ultralytics dataset.yaml. Our AP is computed separately (panorama-level);
-    ultralytics' own val is only used to let training run."""
+def build_dataset_yaml(tiles_dir: Path, train_dirs: list[Path], subset: dict, out: Path) -> Path:
+    """Write an Ultralytics dataset.yaml. train may be a LIST of dirs (real + synthetic).
+    Our AP is computed separately (panorama-level); Ultralytics' val is only to let
+    training run (and is skipped entirely when --val is off)."""
     names = {c["id"]: c["name"] for c in subset["classes"]}
     out.write_text(yaml.safe_dump({
         "path": str(tiles_dir.resolve()),
-        "train": str(train_images.resolve()),
+        "train": [str(Path(d).resolve()) for d in train_dirs],
         "val": str((tiles_dir / "val" / "images").resolve()),
         "names": names,
     }, sort_keys=False))
@@ -139,9 +141,9 @@ def main() -> None:
                               "smoke": args.smoke})
     t0 = time.time()
     try:
-        # content arms need Stage-2 synthetic tiles; baselines use raw train tiles.
-        train_images = resolve_arm_train_dir(args.arm, tiles_dir)
-        n_arm = _count_images(train_images)
+        # content arms train on real + synthetic tiles; baselines on raw train tiles.
+        train_dirs = resolve_arm_train_dirs(args.arm, tiles_dir)
+        n_arm = sum(_count_images(d) for d in train_dirs)
         n_ref = _count_images(tiles_dir / "train" / "images")
         base_epochs = 2 if args.smoke else args.base_epochs
         total_steps = total_steps_from_reference(n_ref, args.batch, base_epochs)
@@ -155,7 +157,7 @@ def main() -> None:
             else:
                 raise RuntimeError(f"{msg} — aborting official run (fairness invariant).")
 
-        ds_yaml = build_dataset_yaml(tiles_dir, train_images, subset,
+        ds_yaml = build_dataset_yaml(tiles_dir, train_dirs, subset,
                                      tiles_dir / f"dataset_{args.arm}.yaml")
         weights = train_arm(ds_yaml, model_cfg["weights"], args.project, exp,
                             epochs=plan["epochs"], batch=args.batch, imgsz=args.imgsz,
@@ -170,10 +172,16 @@ def main() -> None:
         dets = predict_dets_by_panorama(weights, tiles_dir, args.eval_split,
                                         conf=0.001, nms_iou=0.5, panorama_size=2048)
         result = evaluate_split(records, splits[args.eval_split], subset, dets, panorama_size=2048)
+        # val-free convergence check (train-loss plateau) — flags subtraining per run
+        converged, loss_info = loss_plateaued(weights.parent.parent / "results.csv")
+        if not converged and not args.smoke:
+            print(f"[warn] loss não platô p/ {args.arm} ({loss_info}) — possível subtreino; "
+                  f"considere subir --base-epochs.")
         result["meta"] = {"arm": args.arm, "seed": args.seed, "K": args.K,
                           "eval_split": args.eval_split, "epochs": plan["epochs"],
                           "steps": plan["realized_steps"], "deviation": plan["deviation"],
-                          "within_tol": plan["within_tol"], "n_train_tiles": n_arm}
+                          "within_tol": plan["within_tol"], "n_train_tiles": n_arm,
+                          "converged": converged, "loss_check": loss_info}
 
         out = weights.parent.parent / "ap_report.json"  # alongside the trained weights
         out.write_text(nan_safe_dumps(result))

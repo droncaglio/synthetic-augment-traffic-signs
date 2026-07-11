@@ -3,21 +3,36 @@ import pytest
 
 from detection.train_harness import (
     steps_per_epoch, total_steps_from_reference, epochs_for_budget,
-    realized_steps, equalized_plan, resolve_arm_train_dir,
+    realized_steps, equalized_plan, resolve_arm_train_dirs, loss_plateaued,
 )
 
 
-def test_resolve_arm_train_dir(tmp_path):
-    # baselines -> raw train tiles
-    assert resolve_arm_train_dir("zero_aug", tmp_path) == tmp_path / "train" / "images"
-    assert resolve_arm_train_dir("da_only", tmp_path) == tmp_path / "train" / "images"
+def test_resolve_arm_train_dirs(tmp_path):
+    train = tmp_path / "train" / "images"
+    # baselines -> raw train tiles only
+    assert resolve_arm_train_dirs("zero_aug", tmp_path) == [train]
+    assert resolve_arm_train_dirs("da_only", tmp_path) == [train]
     # content arm WITHOUT Stage-2 tiles -> hard error (confound guard #2)
     with pytest.raises(FileNotFoundError):
-        resolve_arm_train_dir("diffusion_bg", tmp_path)
-    # content arm WITH tiles -> returns the combined dir
+        resolve_arm_train_dirs("diffusion_bg", tmp_path)
+    # content arm WITH tiles -> real train + synthetic dir
     d = tmp_path / "arms" / "copy_paste" / "images"
     d.mkdir(parents=True)
-    assert resolve_arm_train_dir("copy_paste", tmp_path) == d
+    assert resolve_arm_train_dirs("copy_paste", tmp_path) == [train, d]
+
+
+def test_loss_plateaued(tmp_path):
+    csv_path = tmp_path / "results.csv"
+    hdr = "epoch,train/box_loss,train/cls_loss,train/dfl_loss\n"
+    # flat loss -> plateaued
+    csv_path.write_text(hdr + "\n".join(f"{i},1.0,1.0,1.0" for i in range(10)))
+    ok, _ = loss_plateaued(csv_path)
+    assert ok
+    # steadily dropping -> NOT plateaued (subtraining)
+    csv_path.write_text(hdr + "\n".join(f"{i},{3.0-0.2*i},{3.0-0.2*i},{3.0-0.2*i}"
+                                        for i in range(10)))
+    ok2, info2 = loss_plateaued(csv_path)
+    assert not ok2 and info2["recent_rel_drop"] > 0.02
 
 
 def test_steps_per_epoch_ceil():
