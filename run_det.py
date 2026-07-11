@@ -162,8 +162,7 @@ def main() -> None:
                           "eval_split": args.eval_split, "epochs": plan["epochs"],
                           "steps": plan["realized_steps"], "n_train_tiles": n_arm}
 
-        out = Path(args.project) / exp / "ap_report.json"
-        out.parent.mkdir(parents=True, exist_ok=True)
+        out = weights.parent.parent / "ap_report.json"  # alongside the trained weights
         out.write_text(nan_safe_dumps(result))
         hl = result["headline"]
         hl_meta = {**hl, "epochs": plan["epochs"],

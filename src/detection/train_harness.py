@@ -65,4 +65,6 @@ def train_arm(dataset_yaml: str | Path, weights: str | Path, project: str | Path
         project=str(project), name=name, exist_ok=True, verbose=False,
         device=device, **runtime_aug,
     )
-    return Path(project) / name / "weights" / "best.pt"
+    # Ask Ultralytics where it actually saved (it prepends runs/detect/ to a
+    # relative project); don't reconstruct the path by hand.
+    return Path(model.trainer.best)
