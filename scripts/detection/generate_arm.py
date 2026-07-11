@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -48,8 +49,12 @@ def main() -> None:
                     help="diffusion_bg: permit running without the hallucination scan (dev only)")
     ap.add_argument("--limit", type=int, default=0,
                     help="generate only the first N sources (0 = all) — for a quick visual QA")
+    ap.add_argument("--device", default=None,
+                    help="diffusion_bg: GPU index to pin via CUDA_VISIBLE_DEVICES (e.g. 0)")
     args = ap.parse_args()
     load_env()  # pull HF_TOKEN (+ any creds) from repo-root .env for the diffusion arm
+    if args.device is not None:
+        os.environ["CUDA_VISIBLE_DEVICES"] = str(args.device)  # before torch/FLUX import
 
     prepared, tiles = Path(args.prepared), Path(args.tiles)
     alloc_spec = json.loads((prepared / "allocation.json").read_text())
