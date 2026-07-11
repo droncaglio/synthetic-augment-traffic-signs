@@ -45,6 +45,8 @@ def main() -> None:
                          "hallucination scan (REQUIRED for diffusion_bg unless --allow-no-scan)")
     ap.add_argument("--allow-no-scan", action="store_true",
                     help="diffusion_bg: permit running without the hallucination scan (dev only)")
+    ap.add_argument("--limit", type=int, default=0,
+                    help="generate only the first N sources (0 = all) — for a quick visual QA")
     args = ap.parse_args()
 
     prepared, tiles = Path(args.prepared), Path(args.tiles)
@@ -73,6 +75,8 @@ def main() -> None:
                           scan_weights=args.scan_weights)
     else:
         gen = ARM_REGISTRY[args.arm](tiles, seed=args.seed)
+    if args.limit:
+        entries = entries[:args.limit]
     manifest = gen.generate(entries, tiles / "arms" / args.arm)
     print(f"[{args.arm}] sources={len(sources)} tiles_written={manifest['n_tiles_written']}")
     print(f"  allocated/class={manifest['allocated_per_class']}")

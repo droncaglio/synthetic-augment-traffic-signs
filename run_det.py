@@ -185,6 +185,11 @@ def main() -> None:
 
         out = weights.parent.parent / "ap_report.json"  # alongside the trained weights
         out.write_text(nan_safe_dumps(result))
+        # save per-panorama reconstructed detections so det_report can run the paired
+        # bootstrap CI (stats.bootstrap_delta_ap needs the raw dets, not just the AP).
+        (weights.parent.parent / "dets.json").write_text(json.dumps(
+            {pid: [{"class_id": d["class_id"], "conf": d["conf"], "box": list(d["box"])}
+                   for d in dl] for pid, dl in dets.items()}))
         hl = result["headline"]
         hl_meta = {**hl, "epochs": plan["epochs"],
                    "train_time_hours": (time.time() - t0) / 3600}
