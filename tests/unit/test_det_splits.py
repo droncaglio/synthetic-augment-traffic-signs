@@ -113,6 +113,26 @@ def test_assert_no_leak_passes_and_detects():
         assert_no_leak(split_group)
 
 
+def test_make_splits_raises_on_missing_images(tmp_path):
+    # images don't exist under raw_dir -> every pHash missing -> anti-leak raise (#3)
+    from detection.splits import make_splits
+    records = [{"id": "a", "path": "train/a.jpg", "objects": []},
+               {"id": "b", "path": "train/b.jpg", "objects": []}]
+    with pytest.raises(ValueError):
+        make_splits(records, {"names": []}, tmp_path)
+
+
+def test_compute_phashes_skips_missing(tmp_path):
+    import numpy as np
+    from PIL import Image
+    from detection.splits import compute_phashes
+    (tmp_path / "train").mkdir()
+    Image.fromarray(np.zeros((64, 64, 3), np.uint8)).save(tmp_path / "train" / "a.jpg")
+    records = [{"id": "a", "path": "train/a.jpg"}, {"id": "b", "path": "train/b.jpg"}]
+    h = compute_phashes(records, tmp_path)
+    assert "a" in h and "b" not in h    # missing file skipped (feeds the #3 raise)
+
+
 def test_get_donor_pool_is_train_only():
     splits = {"train": ["a", "b"], "val": ["c"], "test": ["d"]}
     assert get_donor_pool(splits) == ["a", "b"]

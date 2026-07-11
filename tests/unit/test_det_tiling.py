@@ -75,7 +75,7 @@ def test_tile_panorama_train_vs_eval_keep(tmp_path):
 
     # 1280x1280 fake panorama -> 3x3=9 grid tiles
     Image.fromarray(np.full((1280, 1280, 3), 128, np.uint8)).save(tmp_path / "p.jpg")
-    record = {"id": "p", "objects": [
+    record = {"id": "p", "width": 1280, "height": 1280, "objects": [
         {"category": "A", "xyxy": [100, 100, 160, 160]},      # subset -> label, tile (0,0)
         {"category": "Z", "xyxy": [1100, 1100, 1160, 1160]},  # non-subset -> ignore only
     ]}
@@ -88,6 +88,15 @@ def test_tile_panorama_train_vs_eval_keep(tmp_path):
     assert len(train) == 1
     assert len(ev) == 9
     assert len(ev) > len(train)
+
+
+def test_tile_panorama_raises_on_size_mismatch(tmp_path):
+    from PIL import Image
+    from detection.tiling import tile_panorama
+    Image.fromarray(np.full((640, 640, 3), 128, np.uint8)).save(tmp_path / "p.jpg")
+    record = {"id": "p", "width": 1280, "height": 1280, "objects": []}  # image is 640, not 1280
+    with pytest.raises(ValueError):
+        tile_panorama(tmp_path / "p.jpg", record, {}, tmp_path / "out")
 
 
 def test_paint_out_makes_region_uniform():

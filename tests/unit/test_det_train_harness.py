@@ -3,8 +3,21 @@ import pytest
 
 from detection.train_harness import (
     steps_per_epoch, total_steps_from_reference, epochs_for_budget,
-    realized_steps, equalized_plan,
+    realized_steps, equalized_plan, resolve_arm_train_dir,
 )
+
+
+def test_resolve_arm_train_dir(tmp_path):
+    # baselines -> raw train tiles
+    assert resolve_arm_train_dir("zero_aug", tmp_path) == tmp_path / "train" / "images"
+    assert resolve_arm_train_dir("da_only", tmp_path) == tmp_path / "train" / "images"
+    # content arm WITHOUT Stage-2 tiles -> hard error (confound guard #2)
+    with pytest.raises(FileNotFoundError):
+        resolve_arm_train_dir("diffusion_bg", tmp_path)
+    # content arm WITH tiles -> returns the combined dir
+    d = tmp_path / "arms" / "copy_paste" / "images"
+    d.mkdir(parents=True)
+    assert resolve_arm_train_dir("copy_paste", tmp_path) == d
 
 
 def test_steps_per_epoch_ceil():

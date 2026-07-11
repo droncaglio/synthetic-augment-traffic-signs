@@ -161,7 +161,7 @@ def assert_no_leak(splits: dict) -> None:
     if sets["train"] & sets["val"] or sets["train"] & sets["test"] or sets["val"] & sets["test"]:
         raise AssertionError("split leakage: panorama present in more than one split")
     id2split = {i: s for s in _SPLITS for i in sets[s]}
-    for g in splits.get("groups", []):
+    for g in splits["groups"]:  # explicit KeyError if 'groups' missing (never skip this check)
         spans = {id2split.get(i) for i in g if i in id2split}
         if len(spans) > 1:
             raise AssertionError(f"near-duplicate group split across splits: {g}")
@@ -194,7 +194,8 @@ def compute_phashes(records: list[dict], raw_dir: str | Path, size: int = 256) -
         if not img_path.exists():
             continue
         with Image.open(img_path) as im:
-            im = im.convert("RGB").resize((size, size))
+            # Fixed resample (LANCZOS) for pHash reproducibility across Pillow versions.
+            im = im.convert("RGB").resize((size, size), Image.Resampling.LANCZOS)
             out[rec["id"]] = int(str(imagehash.phash(im)), 16)
     return out
 
@@ -207,18 +208,22 @@ def make_splits(records: list[dict], subset: dict, raw_dir: str | Path,
     ratios = ratios or {"train": 0.70, "val": 0.15, "test": 0.15}
     rec_by_id = {r["id"]: r for r in records}
     id_to_hash = compute_phashes(records, raw_dir)
-    # Group only panoramas with a real hash; panoramas whose image is missing
-    # become their OWN singleton group (never near-dup-grouped with each other).
-    present = {r["id"]: id_to_hash[r["id"]] for r in records if r["id"] in id_to_hash}
+    # Anti-leak: a missing image cannot be near-dup-grouped, so two true near-duplicates
+    # both missing could silently land in different splits. Fail loud instead.
     missing = sorted(r["id"] for r in records if r["id"] not in id_to_hash)
-    groups = build_groups(present, phash_T) + [[pid] for pid in missing]
-    groups = sorted(groups, key=lambda g: g[0])  # stable group indices
+    if missing:
+        raise ValueError(
+            f"make_splits: {len(missing)} panoramas without a computable pHash "
+            f"(missing/corrupt images, e.g. {missing[:3]}). The near-duplicate grouping "
+            f"would be incomplete — fix the dataset before splitting."
+        )
+    groups = sorted(build_groups(id_to_hash, phash_T), key=lambda g: g[0])
     assigned = assign_groups(groups, rec_by_id, subset["names"], ratios, min_test_support, seed)
     splits = {
         "meta": {
             "seed": seed, "phash_T": phash_T, "ratios": ratios,
             "min_test_support": min_test_support, "subset_names": subset["names"],
-            "n_groups": len(groups), "n_missing_hash": len(missing),
+            "n_groups": len(groups), "n_missing_hash": 0,  # guaranteed by the raise above
             "warnings": assigned.pop("_warnings", []),
         },
         "groups": groups,

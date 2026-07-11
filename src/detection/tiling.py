@@ -136,6 +136,11 @@ def tile_panorama(image_path: str | Path, record: dict, subset_ids: dict[str, in
     with Image.open(image_path) as im:
         pano = np.asarray(im.convert("RGB"))
     h, w = pano.shape[:2]
+    # Invariant: reconstruct/evaluate normalize by a fixed panorama_size (2048).
+    # Fail loud if a panorama breaks it — otherwise bboxes would be mis-scaled.
+    if (h, w) != (record["height"], record["width"]):
+        raise ValueError(f"panorama {pid}: image is {w}x{h} but record says "
+                         f"{record['width']}x{record['height']} — bbox scaling would break")
 
     index: list[dict] = []
     for (tx1, ty1, tx2, ty2) in tile_grid(w, h, size, overlap):

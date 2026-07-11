@@ -19,6 +19,25 @@ import math
 from pathlib import Path
 
 
+BASELINE_ARMS = frozenset({"zero_aug", "da_only"})
+
+
+def resolve_arm_train_dir(arm: str, tiles_dir: str | Path) -> Path:
+    """Train-image dir for an arm. Baselines use raw train tiles; content arms MUST
+    have Stage-2 synthetic tiles — raise otherwise (never silently train a content arm
+    on raw tiles, which would be a zero_aug run mislabeled as that arm)."""
+    tiles_dir = Path(tiles_dir)
+    if arm in BASELINE_ARMS:
+        return tiles_dir / "train" / "images"
+    combined = tiles_dir / "arms" / arm / "images"
+    if combined.exists():
+        return combined
+    raise FileNotFoundError(
+        f"arm '{arm}' has no synthetic tiles at {combined} — run the Stage-2 generator "
+        f"first (refusing to train it on raw tiles as a mislabeled zero_aug)."
+    )
+
+
 def steps_per_epoch(n_tiles: int, batch: int) -> int:
     return max(1, math.ceil(n_tiles / batch))
 
@@ -56,7 +75,14 @@ def train_arm(dataset_yaml: str | Path, weights: str | Path, project: str | Path
 
     runtime_aug keys must be valid Ultralytics augmentation args (fliplr, hsv_h, ...).
     """
+    import numpy as np
+    import torch
     from ultralytics import YOLO
+
+    # Seed global RNGs before YOLO (Ultralytics seeds its own, but this closes
+    # end-to-end reproducibility for any numpy/torch use around it).
+    np.random.seed(seed)
+    torch.manual_seed(seed)
 
     model = YOLO(str(weights))
     model.train(

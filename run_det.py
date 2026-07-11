@@ -24,7 +24,9 @@ from pathlib import Path
 import yaml
 
 sys.path.insert(0, str(Path(__file__).resolve().parent / "src"))
-from detection.train_harness import equalized_plan, total_steps_from_reference, train_arm
+from detection.train_harness import (
+    equalized_plan, total_steps_from_reference, train_arm, resolve_arm_train_dir,
+)
 from detection.reconstruct import reconstruct_panorama
 from detection.evaluate import evaluate_split
 from detection.ap_by_size import nan_safe_dumps
@@ -132,18 +134,21 @@ def main() -> None:
                               "smoke": args.smoke})
     t0 = time.time()
     try:
-        # arm train tiles: content arms use a combined dir written by Stage-2 generators;
-        # baselines train on the raw train tiles.
-        combined = tiles_dir / "arms" / args.arm / "images"
-        train_images = combined if combined.exists() else (tiles_dir / "train" / "images")
-
+        # content arms need Stage-2 synthetic tiles; baselines use raw train tiles.
+        train_images = resolve_arm_train_dir(args.arm, tiles_dir)
         n_arm = _count_images(train_images)
         n_ref = _count_images(tiles_dir / "train" / "images")
         base_epochs = 2 if args.smoke else args.base_epochs
         total_steps = total_steps_from_reference(n_ref, args.batch, base_epochs)
         plan = equalized_plan(n_arm, args.batch, total_steps)
+        # Equalized-steps fairness is central to the paper: for official runs, abort
+        # (don't just warn) if the realized step budget drifts out of tolerance.
         if not plan["within_tol"]:
-            print(f"[warn] step budget deviation {plan['deviation']:.3f} for {args.arm}")
+            msg = f"step budget deviation {plan['deviation']:.3f} for {args.arm} (tol 2%)"
+            if args.smoke:
+                print(f"[warn smoke] {msg}")
+            else:
+                raise RuntimeError(f"{msg} — aborting official run (fairness invariant).")
 
         ds_yaml = build_dataset_yaml(tiles_dir, train_images, subset,
                                      tiles_dir / f"dataset_{args.arm}.yaml")
@@ -160,7 +165,8 @@ def main() -> None:
         result = evaluate_split(records, splits[args.eval_split], subset, dets, panorama_size=2048)
         result["meta"] = {"arm": args.arm, "seed": args.seed, "K": args.K,
                           "eval_split": args.eval_split, "epochs": plan["epochs"],
-                          "steps": plan["realized_steps"], "n_train_tiles": n_arm}
+                          "steps": plan["realized_steps"], "deviation": plan["deviation"],
+                          "within_tol": plan["within_tol"], "n_train_tiles": n_arm}
 
         out = weights.parent.parent / "ap_report.json"  # alongside the trained weights
         out.write_text(nan_safe_dumps(result))
