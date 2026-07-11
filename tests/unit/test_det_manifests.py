@@ -10,15 +10,26 @@ def _write_labels(d, files):
         (d / f"{name}.txt").write_text("\n".join(lines))
 
 
-def test_index_instances_by_class(tmp_path):
+def test_index_instances_all(tmp_path):
     _write_labels(tmp_path, {
         "t0": ["0 0.5 0.5 0.1 0.1", "1 0.2 0.2 0.05 0.05"],
         "t1": ["0 0.3 0.3 0.1 0.1"],
         "t2": [""],  # background tile, no labels
     })
-    idx = index_instances_by_class(tmp_path)
+    idx = index_instances_by_class(tmp_path, single_sign_only=False)
     assert len(idx[0]) == 2 and len(idx[1]) == 1
     assert ("t0", [0.5, 0.5, 0.1, 0.1]) in idx[0]
+
+
+def test_index_single_sign_only_excludes_multi(tmp_path):
+    _write_labels(tmp_path, {
+        "t0": ["0 0.5 0.5 0.1 0.1", "1 0.2 0.2 0.05 0.05"],  # 2 signs -> excluded
+        "t1": ["0 0.3 0.3 0.1 0.1"],                         # 1 sign -> kept
+    })
+    idx = index_instances_by_class(tmp_path, single_sign_only=True)
+    # t0 dropped (co-occurring) -> only t1 remains for class 0; class 1 has no source
+    assert idx.get(0) == [("t1", [0.3, 0.3, 0.1, 0.1])]
+    assert 1 not in idx
 
 
 def test_select_sources_counts_and_determinism():

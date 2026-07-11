@@ -80,6 +80,21 @@ def test_copy_paste_relocates_sign_into_background(tmp_path):
     img, labels = gen.make_tile(entry, random.Random(5))
     # sign now around (0.25,0.25) on the background; a new label added
     assert len(labels) == 1 and labels[0].startswith("0 ")
-    assert (img == 222).any()                           # pasted sign present
+    assert (img == 222).any()                           # pasted sign present (feather center)
     assert (img == 10).any()                            # background base present
+
+
+def test_copy_paste_none_on_empty_crop(tmp_path):
+    timg = tmp_path / "train" / "images"
+    tlbl = tmp_path / "train" / "labels"
+    timg.mkdir(parents=True)
+    tlbl.mkdir(parents=True)
+    Image.fromarray(np.full((640, 640, 3), 50, np.uint8)).save(timg / "src.jpg")
+    (tlbl / "src.txt").write_text("0 0.5 0.5 0.06 0.06")
+    Image.fromarray(np.full((640, 640, 3), 10, np.uint8)).save(timg / "bg.jpg")
+    (tlbl / "bg.txt").write_text("")
+    gen = CopyPaste(tmp_path, seed=1)
+    entry = {"class_id": 0, "source_tile": "src", "bbox": [0.5, 0.5, 0.0, 0.0],  # zero area
+             "recipient_tile": "bg", "place": [0.5, 0.5, 0.05, 0.05]}
+    assert gen.make_tile(entry, random.Random(1)) is None
 

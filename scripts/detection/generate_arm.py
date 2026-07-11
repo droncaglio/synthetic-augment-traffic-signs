@@ -42,7 +42,9 @@ def main() -> None:
     ap.add_argument("--lora-dir", default=None, help="diffusion_bg: background-domain LoRA dir")
     ap.add_argument("--scan-weights", default=None,
                     help="diffusion_bg: light detector (e.g. baseline best.pt) for the "
-                         "hallucination scan; without it the scan is skipped (warned)")
+                         "hallucination scan (REQUIRED for diffusion_bg unless --allow-no-scan)")
+    ap.add_argument("--allow-no-scan", action="store_true",
+                    help="diffusion_bg: permit running without the hallucination scan (dev only)")
     args = ap.parse_args()
 
     prepared, tiles = Path(args.prepared), Path(args.tiles)
@@ -63,8 +65,10 @@ def main() -> None:
         entries = sources
 
     if args.arm == "diffusion_bg":
-        if not args.scan_weights:
-            print("[warn] diffusion_bg without --scan-weights: hallucination scan disabled.")
+        if not args.scan_weights and not args.allow_no_scan:
+            sys.exit("diffusion_bg requires --scan-weights (hallucination scan) — it can "
+                     "invent unlabeled signs otherwise. Pass a baseline best.pt, or "
+                     "--allow-no-scan for a dev run.")
         gen = DiffusionBg(tiles, seed=args.seed, lora_dir=args.lora_dir,
                           scan_weights=args.scan_weights)
     else:

@@ -14,6 +14,18 @@ from detection.generators.base import ArmGenerator
 from detection.generators.bg_photometric import _yolo_to_px
 
 
+def _feather_alpha(th: int, tw: int) -> np.ndarray:
+    """Alpha (th,tw) = 1 in the center, ramping to ~0 over a small border (soft paste)."""
+    f = max(1, min(tw, th) // 10)
+    ay = np.ones(th, np.float32)
+    ax = np.ones(tw, np.float32)
+    for i in range(f):
+        v = (i + 1) / (f + 1)
+        ay[i] = ay[-1 - i] = min(ay[i], v)
+        ax[i] = ax[-1 - i] = min(ax[i], v)
+    return np.minimum(ay[:, None], ax[None, :])
+
+
 class CopyPaste(ArmGenerator):
     name = "copy_paste"
 
@@ -34,7 +46,11 @@ class CopyPaste(ArmGenerator):
         px1 = max(0, min(W - tw, int(round(cx * W - tw / 2))))
         py1 = max(0, min(H - th, int(round(cy * H - th / 2))))
         out = bg.copy()
-        out[py1:py1 + th, px1:px1 + tw] = crop_r
+        # feathered alpha border to avoid hard 'glue-line' paste artifacts
+        alpha = _feather_alpha(th, tw)[..., None]
+        region = out[py1:py1 + th, px1:px1 + tw].astype(np.float32)
+        blended = alpha * crop_r.astype(np.float32) + (1 - alpha) * region
+        out[py1:py1 + th, px1:px1 + tw] = blended.astype(np.uint8)
 
         ncx, ncy = (px1 + tw / 2) / W, (py1 + th / 2) / H
         nw, nh = tw / W, th / H

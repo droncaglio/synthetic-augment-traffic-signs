@@ -21,16 +21,23 @@ from pathlib import Path
 Box = list  # [cx, cy, w, h] normalized to the tile
 
 
-def index_instances_by_class(labels_dir: str | Path) -> dict[int, list[tuple[str, Box]]]:
-    """Scan train tile labels -> {class_id: [(tile_stem, [cx,cy,w,h]), ...]} (train-only pool)."""
+def index_instances_by_class(labels_dir: str | Path, single_sign_only: bool = True
+                             ) -> dict[int, list[tuple[str, Box]]]:
+    """Scan train tile labels -> {class_id: [(tile_stem, [cx,cy,w,h]), ...]} (train-only pool).
+
+    single_sign_only (default): only index instances from tiles that contain EXACTLY ONE
+    subset sign. This makes every generated tile add exactly one target instance, so the
+    in-place arms (whole-tile) are instance-matched with copy-paste (single pasted sign) —
+    removing the co-occurring-signal asymmetry between the arms. Sparse TT100K tiles are
+    almost all single-sign; classes left without any source are reported by select_sources.
+    """
     index: dict[int, list[tuple[str, Box]]] = defaultdict(list)
     for txt in sorted(Path(labels_dir).glob("*.txt")):
-        for line in txt.read_text().splitlines():
-            parts = line.split()
-            if len(parts) < 5:
-                continue
-            cid = int(parts[0])
-            index[cid].append((txt.stem, [float(v) for v in parts[1:5]]))
+        rows = [ln.split() for ln in txt.read_text().splitlines() if len(ln.split()) >= 5]
+        if single_sign_only and len(rows) != 1:
+            continue
+        for parts in rows:
+            index[int(parts[0])].append((txt.stem, [float(v) for v in parts[1:5]]))
     return dict(index)
 
 

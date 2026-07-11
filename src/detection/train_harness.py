@@ -49,11 +49,13 @@ def loss_plateaued(results_csv: str | Path, last_k: int = 5,
     within the fixed budget. Lets every grid run self-report convergence without val.
     """
     import csv
-    rows = list(csv.DictReader(open(results_csv)))
+    with open(results_csv, newline="") as fh:
+        rows = list(csv.DictReader(fh))
     loss_keys = [k for k in (rows[0].keys() if rows else [])
                  if "train/" in k and "loss" in k]
     if len(rows) < last_k + 1 or not loss_keys:
-        return True, {"note": "too few epochs / no loss cols to judge"}
+        # too short to judge -> return None (unknown), not a false "plateaued"
+        return None, {"note": "too few epochs / no loss cols to judge"}
     losses = [sum(float(r[k]) for k in loss_keys) for r in rows]
     window = losses[-last_k - 1:]
     rel_drop = (window[0] - window[-1]) / max(abs(window[0]), 1e-9)
