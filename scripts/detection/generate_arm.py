@@ -23,6 +23,7 @@ from detection.generators.real_duplicate import RealDuplicate  # noqa: E402
 from detection.generators.bg_photometric import BgPhotometric  # noqa: E402
 from detection.generators.copy_paste import CopyPaste  # noqa: E402
 from detection.generators.diffusion_bg import DiffusionBg  # noqa: E402
+from detection.notifications.telegram import load_env  # noqa: E402
 
 ARM_REGISTRY = {
     "real_duplicate": RealDuplicate,
@@ -48,6 +49,7 @@ def main() -> None:
     ap.add_argument("--limit", type=int, default=0,
                     help="generate only the first N sources (0 = all) — for a quick visual QA")
     args = ap.parse_args()
+    load_env()  # pull HF_TOKEN (+ any creds) from repo-root .env for the diffusion arm
 
     prepared, tiles = Path(args.prepared), Path(args.tiles)
     alloc_spec = json.loads((prepared / "allocation.json").read_text())

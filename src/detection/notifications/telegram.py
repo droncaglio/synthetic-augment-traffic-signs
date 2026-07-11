@@ -95,8 +95,12 @@ class LogCapture:
         return False
 
 
-def _load_env() -> None:
-    """Load KEY=VALUE from the repo-root .env into os.environ (no overwrite)."""
+def load_env() -> None:
+    """Load KEY=VALUE from the repo-root .env into os.environ (no overwrite).
+
+    Loads every key (TELEGRAM_*, HF_TOKEN, ...) so the diffusion arm can pull
+    gated models without a separate `hf auth login`.
+    """
     env_path = _ROOT / ".env"
     if not env_path.exists():
         return
@@ -122,7 +126,7 @@ class TelegramNotifier:
 
     @classmethod
     def from_env(cls) -> "TelegramNotifier":
-        _load_env()
+        load_env()
         token = os.environ.get("TELEGRAM_BOT_TOKEN", "").strip()
         chat_id = os.environ.get("TELEGRAM_CHAT_ID", "").strip()
         if not token or not chat_id:
