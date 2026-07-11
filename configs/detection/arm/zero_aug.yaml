@@ -1,0 +1,4 @@
+# Zero-Aug: absolute floor, NO runtime aug, no synthetic. (Hydra group `arm`.)
+name: zero_aug
+runtime_aug: {fliplr: 0.0, flipud: 0.0, hsv_h: 0.0, hsv_s: 0.0, hsv_v: 0.0, mosaic: 0.0, scale: 0.0, translate: 0.0}
+synthetic: {enabled: false, generator: null}

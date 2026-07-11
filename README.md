@@ -8,11 +8,14 @@ sob cauda longa. Base de dataset: **TT100K (Tsinghua-Tencent 100K)**.
 
 ## Ambiente
 
-Reaproveita o env conda do pipeline de detecção legado:
+Env conda dedicado (deps de difusão são pesadas — não compartilha com os outros repos):
 
 ```bash
-conda activate longtail-synth   # numpy, pandas, matplotlib, ultralytics 8.4.x
+conda env create -f env/environment.yml
+conda activate augment-traffic-signs
 ```
+
+Testes unitários (sem GPU): `pytest tests/unit -q`.
 
 ## Dataset (TT100K)
 

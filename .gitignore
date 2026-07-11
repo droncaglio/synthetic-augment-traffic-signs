@@ -2,6 +2,7 @@
 data/
 runs/
 outputs/
+experiments/        # per-run YOLO outputs (weights, preds, ap_report.json)
 *.zip
 *.pt
 *.pth
@@ -12,7 +13,9 @@ __pycache__/
 *.py[cod]
 .venv/
 venv/
-env/
+/env/*                    # ignore a local virtualenv named env/ ...
+!/env/environment.yml     # ... but keep the tracked conda spec
+.pytest_cache/
 .ipynb_checkpoints/
 
 # Análise pesada

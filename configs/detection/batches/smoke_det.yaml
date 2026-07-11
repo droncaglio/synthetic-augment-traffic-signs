@@ -1,0 +1,8 @@
+# Smoke batch: minimal end-to-end (Zero-Aug + Copy-Paste, 1 seed, tiny step budget).
+name: smoke_det
+dataset: tt100k
+K: 0.5
+seeds: [0]
+arms: [zero_aug, copy_paste]
+smoke: true
+eval: {run_on_test: false}

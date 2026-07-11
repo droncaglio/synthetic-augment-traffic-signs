@@ -1,0 +1,22 @@
+# TT100K dataset config (Hydra group `dataset`). Stage 0 stub.
+name: tt100k
+raw_dir: data/tt100k/tt100k_2021
+annotations: data/tt100k/tt100k_2021/annotations_all.json
+prepared_dir: data/tt100k/prepared
+class_counts_csv: reports/tt100k_class_counts.csv
+panorama_size: 2048
+
+subset:                 # deterministic subset selection (Stage 1: subset.py)
+  n_classes: 20         # target 15-25, head/mid/tail
+  min_test_support: 10  # >= this many instances in test per chosen class
+
+split:                  # panorama-level split BEFORE tiling (Stage 1: splits.py)
+  seed: 42
+  phash_T: 5            # Hamming threshold for near-duplicate grouping
+  ratios: {train: 0.70, val: 0.15, test: 0.15}
+
+tile:                   # 640 tiling, no resize (Stage 1: tiling.py)
+  size: 640
+  overlap: 128
+  keep_thresh: 0.6      # visible fraction >= -> normal label
+  drop_thresh: 0.2      # < -> drop sliver; between drop..keep -> ignore region

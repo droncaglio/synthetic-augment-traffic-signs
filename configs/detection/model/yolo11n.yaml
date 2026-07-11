@@ -1,0 +1,4 @@
+# Detector config (Hydra group `model`). Fixed across all arms.
+name: yolo11n
+weights: yolo11n.pt   # downloaded by reproduce.py (gitignored)
+imgsz: 640

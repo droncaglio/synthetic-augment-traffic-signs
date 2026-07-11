@@ -1,0 +1,5 @@
+# Bg-Photometric: real sign fixed, perturb ONLY the background (filter/noise/weather).
+# Cheap context novelty. Common runtime aug + offline synthetic.
+name: bg_photometric
+runtime_aug: {fliplr: 0.5, flipud: 0.0, hsv_h: 0.015, hsv_s: 0.7, hsv_v: 0.4, mosaic: 0.0, scale: 0.5, translate: 0.1}
+synthetic: {enabled: true, generator: bg_photometric}

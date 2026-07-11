@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "synthetic-augment-traffic-signs"
+version = "0.1.0"
+description = "Data augmentation for long-tail traffic-sign detection (Paper 3 / WVC): context-novelty cost ladder on TT100K."
+requires-python = ">=3.11,<3.12"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+# Import `detection.*` from src/ without installing the package.
+pythonpath = ["src"]
+testpaths = ["tests"]
+addopts = "-q"
