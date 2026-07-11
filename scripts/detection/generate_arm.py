@@ -22,11 +22,13 @@ from detection.generators.manifests import (  # noqa: E402
 from detection.generators.real_duplicate import RealDuplicate  # noqa: E402
 from detection.generators.bg_photometric import BgPhotometric  # noqa: E402
 from detection.generators.copy_paste import CopyPaste  # noqa: E402
+from detection.generators.diffusion_bg import DiffusionBg  # noqa: E402
 
 ARM_REGISTRY = {
     "real_duplicate": RealDuplicate,
     "bg_photometric": BgPhotometric,
     "copy_paste": CopyPaste,
+    "diffusion_bg": DiffusionBg,  # GPU/model — see --lora-dir / --scan-weights
 }
 
 
@@ -36,6 +38,11 @@ def main() -> None:
     ap.add_argument("--prepared", default="data/tt100k/prepared")
     ap.add_argument("--tiles", default="data/tt100k/tiles")
     ap.add_argument("--seed", type=int, default=42, help="shared source-selection seed")
+    # diffusion_bg only (GPU):
+    ap.add_argument("--lora-dir", default=None, help="diffusion_bg: background-domain LoRA dir")
+    ap.add_argument("--scan-weights", default=None,
+                    help="diffusion_bg: light detector (e.g. baseline best.pt) for the "
+                         "hallucination scan; without it the scan is skipped (warned)")
     args = ap.parse_args()
 
     prepared, tiles = Path(args.prepared), Path(args.tiles)
@@ -55,7 +62,13 @@ def main() -> None:
     else:
         entries = sources
 
-    gen = ARM_REGISTRY[args.arm](tiles, seed=args.seed)
+    if args.arm == "diffusion_bg":
+        if not args.scan_weights:
+            print("[warn] diffusion_bg without --scan-weights: hallucination scan disabled.")
+        gen = DiffusionBg(tiles, seed=args.seed, lora_dir=args.lora_dir,
+                          scan_weights=args.scan_weights)
+    else:
+        gen = ARM_REGISTRY[args.arm](tiles, seed=args.seed)
     manifest = gen.generate(entries, tiles / "arms" / args.arm)
     print(f"[{args.arm}] sources={len(sources)} tiles_written={manifest['n_tiles_written']}")
     print(f"  allocated/class={manifest['allocated_per_class']}")
