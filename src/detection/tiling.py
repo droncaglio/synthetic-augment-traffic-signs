@@ -114,12 +114,16 @@ def paint_out(arr, ignore_boxes: Iterable[Box]):
 def tile_panorama(image_path: str | Path, record: dict, subset_ids: dict[str, int],
                   out_dir: str | Path, size: int = 640, overlap: int = 128,
                   keep_thresh: float = 0.6, drop_thresh: float = 0.2,
-                  neg_keep_fn=None) -> list[dict]:
+                  mode: str = "train", neg_keep_fn=None) -> list[dict]:
     """Crop one panorama into tiles; write images + YOLO labels + ignore sidecars.
 
-    Returns tile_index entries. A tile with no labels/ignores (pure background) is
-    kept only if ``neg_keep_fn(tile_name)`` is truthy — lets the caller sample a
-    deterministic fraction of negatives.
+    mode="train": keep a tile only if it has a subset LABEL, or it is sampled by
+      ``neg_keep_fn(tile_name)`` (ignore-only / background tiles are negatives, not
+      auto-kept — otherwise the ~180 non-subset classes would keep almost every tile).
+    mode="eval": keep EVERY grid tile (full-coverage inference) so false positives in
+      background tiles are counted; ignores are still painted out + recorded for
+      reconstruct's exclusion.
+    Returns tile_index entries.
     """
     import numpy as np
     from PIL import Image
@@ -138,9 +142,11 @@ def tile_panorama(image_path: str | Path, record: dict, subset_ids: dict[str, in
         labels, ignores = tile_objects(record["objects"], (tx1, ty1, tx2, ty2),
                                         subset_ids, keep_thresh, drop_thresh)
         name = f"{pid}_{int(tx1)}_{int(ty1)}"
-        if not labels and not ignores:  # pure-background tile
+        if mode == "train" and not labels:
+            # no subset signal -> candidate negative (incl. ignore-only tiles)
             if neg_keep_fn is None or not neg_keep_fn(name):
                 continue
+        # mode == "eval": keep every tile (full-coverage inference)
         crop = pano[int(ty1):int(ty2), int(tx1):int(tx2)].copy()
         paint_out(crop, ignores)
         Image.fromarray(crop).save(out_dir / "images" / f"{name}.jpg", quality=95)

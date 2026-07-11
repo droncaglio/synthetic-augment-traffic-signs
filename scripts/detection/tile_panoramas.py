@@ -50,8 +50,9 @@ def main() -> None:
     splits = json.loads((prepared / "splits.json").read_text())
 
     out_dir = Path(args.out) / args.split
-    # negatives only for train (val/test evaluated at panorama level anyway)
-    neg_fn = (lambda name: _keep_negative(name, args.neg_fraction)) if args.split == "train" else None
+    # train: selective keep (labels + sampled negatives); val/test: full coverage for FP accounting
+    mode = "train" if args.split == "train" else "eval"
+    neg_fn = (lambda name: _keep_negative(name, args.neg_fraction)) if mode == "train" else None
     index: list[dict] = []
     for pid in splits[args.split]:
         rec = records[pid]
@@ -59,7 +60,7 @@ def main() -> None:
         if not img.exists():
             continue
         index += tile_panorama(img, rec, subset_ids, out_dir, args.size, args.overlap,
-                               neg_keep_fn=neg_fn)
+                               mode=mode, neg_keep_fn=neg_fn)
     (out_dir / "tile_index.json").write_text(json.dumps(index))
     print(f"[{args.split}] wrote {len(index)} non-empty tiles -> {out_dir}")
 

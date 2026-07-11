@@ -69,6 +69,27 @@ def test_tile_objects_midband_and_sliver():
     assert ignores == [(600, 600, 640, 640)]  # only the mid-band one
 
 
+def test_tile_panorama_train_vs_eval_keep(tmp_path):
+    from PIL import Image
+    from detection.tiling import tile_panorama
+
+    # 1280x1280 fake panorama -> 3x3=9 grid tiles
+    Image.fromarray(np.full((1280, 1280, 3), 128, np.uint8)).save(tmp_path / "p.jpg")
+    record = {"id": "p", "objects": [
+        {"category": "A", "xyxy": [100, 100, 160, 160]},      # subset -> label, tile (0,0)
+        {"category": "Z", "xyxy": [1100, 1100, 1160, 1160]},  # non-subset -> ignore only
+    ]}
+    subset_ids = {"A": 0}
+
+    train = tile_panorama(tmp_path / "p.jpg", record, subset_ids, tmp_path / "tr",
+                          mode="train", neg_keep_fn=None)
+    ev = tile_panorama(tmp_path / "p.jpg", record, subset_ids, tmp_path / "ev", mode="eval")
+    # train (no negatives) keeps only the label tile; eval keeps every grid tile
+    assert len(train) == 1
+    assert len(ev) == 9
+    assert len(ev) > len(train)
+
+
 def test_paint_out_makes_region_uniform():
     arr = np.zeros((10, 10, 3), dtype=np.uint8)
     arr[2:6, 2:6] = np.arange(4 * 4 * 3).reshape(4, 4, 3).astype(np.uint8)
