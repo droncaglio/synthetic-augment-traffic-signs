@@ -41,6 +41,8 @@ dependencies:
       - statsmodels>=0.14.0
       - matplotlib
       - seaborn
+      # --- tests ---
+      - pytest>=8.0
       # --- diffusion (Diffusion-Bg arm only; heavy) ---
       - diffusers>=0.30
       - transformers>=4.44
