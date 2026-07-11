@@ -115,6 +115,11 @@ def main() -> None:
     ap.add_argument("--base-epochs", type=int, default=100)
     ap.add_argument("--batch", type=int, default=16)
     ap.add_argument("--imgsz", type=int, default=640)
+    ap.add_argument("--workers", type=int, default=16)
+    ap.add_argument("--cache", default="", help="'ram' | 'disk' | '' (off)")
+    ap.add_argument("--val", action="store_true",
+                    help="keep Ultralytics per-epoch val + best.pt (convergence probe); "
+                         "default off -> fixed-budget, evaluate last.pt")
     ap.add_argument("--smoke", action="store_true")
     ap.add_argument("--prepared", default="data/tt100k/prepared")
     ap.add_argument("--tiles", default="data/tt100k/tiles")
@@ -154,7 +159,9 @@ def main() -> None:
                                      tiles_dir / f"dataset_{args.arm}.yaml")
         weights = train_arm(ds_yaml, model_cfg["weights"], args.project, exp,
                             epochs=plan["epochs"], batch=args.batch, imgsz=args.imgsz,
-                            seed=args.seed, runtime_aug=arm_cfg["runtime_aug"], device=args.device)
+                            seed=args.seed, runtime_aug=arm_cfg["runtime_aug"], device=args.device,
+                            val=args.val, workers=args.workers,
+                            cache=(args.cache or False))
 
         # panorama-level evaluation
         records = {r["id"]: r for r in

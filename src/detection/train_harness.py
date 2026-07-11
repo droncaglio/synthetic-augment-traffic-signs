@@ -70,9 +70,15 @@ def equalized_plan(n_tiles: int, batch: int, total_steps: int, tol: float = 0.02
 
 def train_arm(dataset_yaml: str | Path, weights: str | Path, project: str | Path,
               name: str, epochs: int, batch: int, imgsz: int, seed: int,
-              runtime_aug: dict, device: int = 0) -> Path:
-    """Train one arm with a fixed epoch budget (early stopping disabled). Returns best.pt.
+              runtime_aug: dict, device: int | str = 0, val: bool = False,
+              workers: int = 16, cache: str | bool = False) -> Path:
+    """Train one arm for a FIXED epoch budget. Returns the checkpoint to evaluate.
 
+    val=False (default): skip Ultralytics' per-epoch validation (its best.pt is picked
+    by a tile-mAP proxy != our panorama metric, and it costs ~37% of each epoch on the
+    25k val tiles). We train a fixed step budget and evaluate the FINAL model (last.pt)
+    with our own panorama-level AP. val=True keeps per-epoch val + best.pt (for a
+    convergence probe to choose base_epochs).
     runtime_aug keys must be valid Ultralytics augmentation args (fliplr, hsv_h, ...).
     """
     import numpy as np
@@ -89,8 +95,8 @@ def train_arm(dataset_yaml: str | Path, weights: str | Path, project: str | Path
         data=str(dataset_yaml), epochs=epochs, batch=batch, imgsz=imgsz,
         seed=seed, deterministic=True, patience=epochs,  # patience>=epochs => no early stop
         project=str(project), name=name, exist_ok=True, verbose=False,
-        device=device, **runtime_aug,
+        device=device, val=val, workers=workers, cache=cache, **runtime_aug,
     )
-    # Ask Ultralytics where it actually saved (it prepends runs/detect/ to a
-    # relative project); don't reconstruct the path by hand.
-    return Path(model.trainer.best)
+    # Ask Ultralytics where it saved (it prepends runs/detect/ to a relative project).
+    # Fixed-budget training -> evaluate last.pt; best.pt only meaningful with val.
+    return Path(model.trainer.best if val else model.trainer.last)
