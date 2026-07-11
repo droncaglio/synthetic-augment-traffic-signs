@@ -73,13 +73,20 @@ def predict_dets_by_panorama(weights: Path, tiles_dir: Path, split: str,
     img_dir = tiles_dir / split / "images"
     lab_dir = tiles_dir / split / "labels"
     for pid, entries in per_pano_tiles.items():
-        tiles_payload = []
+        # batch-predict all tiles of this panorama in one call (much faster than 1-by-1)
+        paths, kept = [], []
         for e in entries:
             img = img_dir / f"{e['tile']}.jpg"
-            if not img.exists():
-                continue
-            r = model.predict(str(img), conf=conf, iou=0.45, verbose=False, save=False)
-            b = r[0].boxes
+            if img.exists():
+                paths.append(str(img))
+                kept.append(e)
+        if not paths:
+            by_pano[pid] = []
+            continue
+        results = model.predict(paths, conf=conf, iou=0.45, verbose=False, save=False)
+        tiles_payload = []
+        for e, r in zip(kept, results):
+            b = r.boxes
             dets = []
             if b is not None and len(b) > 0:
                 xywhn = b.xywhn.cpu().numpy()
