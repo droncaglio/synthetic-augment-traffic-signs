@@ -23,6 +23,9 @@ venv/
 analysis/**/*.png
 !analysis/**/.gitkeep
 
+# QA visual dos sintéticos — não vazar método antes da submissão (repo público)
+reports/qa/
+
 # Logs
 *.log
 
