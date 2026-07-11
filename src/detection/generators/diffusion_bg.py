@@ -118,7 +118,7 @@ class DiffusionBg(ArmGenerator):
                        height=self.imgsz, width=self.imgsz,
                        num_inference_steps=self.steps, guidance_scale=self.guidance,
                        generator=gen).images[0]
-            out = np.asarray(out.convert("RGB"))
+            out = np.array(out.convert("RGB"))  # copy -> writable for the sign composite
             # composite the real sign crops back (guard edge bleed) -> label stays valid
             for (x1, y1, x2, y2) in sign_boxes:
                 out[y1:y2, x1:x2] = img[y1:y2, x1:x2]
