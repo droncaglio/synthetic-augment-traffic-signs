@@ -48,5 +48,6 @@ dependencies:
       - transformers>=4.44
       - peft>=0.12
       - accelerate>=0.30
+      - bitsandbytes>=0.43    # 4-bit NF4 quant for FLUX.1-Fill (BitsAndBytesConfig)
       - safetensors>=0.4.0
       - huggingface_hub>=0.23
