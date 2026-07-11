@@ -6,12 +6,14 @@ per-image prediction/dataset-yaml/CLI flow is intentionally omitted — here we
 evaluate at the PANORAMA level (predictions reconstructed + globally NMS'd by
 detection.reconstruct, then fed into compute_ap_by_size by detection.evaluate).
 
-Buckets are relative to image area (bbox_w * bbox_h, both normalized). For 2048
-panoramas nearly every traffic sign falls in `small` — which is exactly AP@small.
+Buckets use ABSOLUTE COCO pixel-area thresholds on the bbox area in the panorama
+(bbox_w*bbox_h normalized -> px^2 via the panorama size). This actually stratifies
+traffic signs (16-128 px) into small/medium/large — unlike a relative-area bucket,
+where on a 2048 panorama every sign would collapse into one bucket.
 
-  small : [0.00, 0.15)   medium : [0.15, 0.30)   large : [0.30, 1.00]
+  small : area < 32^2 (1024 px^2)   medium : [32^2, 96^2)   large : >= 96^2 (9216 px^2)
 
-Methodology (unchanged from legacy):
+Methodology (from legacy):
   * greedy COCO-style matching, preds sorted by confidence desc, one GT per match;
   * 101-point COCO interpolation; AP = NaN when a (class,bucket) has no GT.
 """
@@ -22,12 +24,11 @@ from typing import NamedTuple
 
 import numpy as np
 
-BUCKET_DEFS: dict[str, tuple[float, float]] = {
-    "small": (0.00, 0.15),
-    "medium": (0.15, 0.30),
-    "large": (0.30, 1.00),
-}
-BUCKET_ORDER = list(BUCKET_DEFS.keys())
+# COCO absolute pixel-area thresholds (bbox area in the panorama, px^2).
+COCO_SMALL_MAX = 32 * 32     # 1024
+COCO_MEDIUM_MAX = 96 * 96    # 9216
+BUCKET_ORDER = ["small", "medium", "large"]
+PANORAMA_SIZE_DEFAULT = 2048
 
 
 class Detection(NamedTuple):
@@ -49,15 +50,17 @@ class GroundTruth(NamedTuple):
     h: float
 
 
-def _relative_area(w: float, h: float) -> float:
-    return w * h
+def _px_area(w: float, h: float, image_area_px: float) -> float:
+    """Bbox pixel area: w,h are normalized to the image, so px_area = w*h*image_area."""
+    return w * h * image_area_px
 
 
-def _assign_bucket(rel_area: float) -> str:
-    for name, (lo, hi) in BUCKET_DEFS.items():
-        if lo <= rel_area < hi:
-            return name
-    return "large"  # rel_area == 1.0 edge
+def _assign_bucket(px_area: float) -> str:
+    if px_area < COCO_SMALL_MAX:
+        return "small"
+    if px_area < COCO_MEDIUM_MAX:
+        return "medium"
+    return "large"
 
 
 def _iou(b1: tuple[float, float, float, float],
@@ -99,24 +102,27 @@ def _ap_from_pr(tp_fp_sorted: list[tuple[bool, str]], n_gt: int) -> float:
 
 
 def compute_ap_by_size(detections: list[Detection], ground_truths: list[GroundTruth],
-                       class_names: list[str], iou_threshold: float = 0.5) -> dict:
-    """AP50 per (class, bucket) and per bucket overall. See module docstring."""
+                       class_names: list[str], iou_threshold: float = 0.5,
+                       panorama_size: int = PANORAMA_SIZE_DEFAULT) -> dict:
+    """AP50 per (class, bucket) and per bucket overall (COCO absolute px buckets)."""
     n_classes = len(class_names)
+    image_area = float(panorama_size) ** 2
     gt_index: dict[tuple[int, int], list[GroundTruth]] = {}
     for gt in ground_truths:
         gt_index.setdefault((gt.class_id, gt.image_id), []).append(gt)
 
     matched_gt: dict[int, dict[int, set[int]]] = {c: {} for c in range(n_classes)}
-    tp_fp_lists: dict[tuple[int, str], list[tuple[bool, str]]] = {}
+    # tp_fp tuple = (is_tp, confidence) so overall lists can be re-sorted globally.
+    tp_fp_lists: dict[tuple[int, str], list[tuple[bool, float]]] = {}
 
     n_gt_cb: dict[tuple[int, str], int] = {}
     for gt in ground_truths:
-        bkt = _assign_bucket(_relative_area(gt.w, gt.h))
+        bkt = _assign_bucket(_px_area(gt.w, gt.h, image_area))
         n_gt_cb[(gt.class_id, bkt)] = n_gt_cb.get((gt.class_id, bkt), 0) + 1
 
     for det in sorted(detections, key=lambda d: -d.confidence):
         cid, iid = det.class_id, det.image_id
-        det_bkt = _assign_bucket(_relative_area(det.w, det.h))
+        det_bkt = _assign_bucket(_px_area(det.w, det.h, image_area))
         gts_here = gt_index.get((cid, iid), [])
         matched_set = matched_gt.setdefault(cid, {}).setdefault(iid, set())
         best_iou, best_idx = -1.0, -1
@@ -129,27 +135,32 @@ def compute_ap_by_size(detections: list[Detection], ground_truths: list[GroundTr
         if best_iou >= iou_threshold:
             matched_set.add(best_idx)
             gm = gts_here[best_idx]
-            bkt = _assign_bucket(_relative_area(gm.w, gm.h))
-            tp_fp_lists.setdefault((cid, bkt), []).append((True, bkt))
+            bkt = _assign_bucket(_px_area(gm.w, gm.h, image_area))
+            tp_fp_lists.setdefault((cid, bkt), []).append((True, det.confidence))
         else:
-            tp_fp_lists.setdefault((cid, det_bkt), []).append((False, det_bkt))
+            tp_fp_lists.setdefault((cid, det_bkt), []).append((False, det.confidence))
 
     per_class: dict[str, dict[str, dict]] = {}
-    bucket_tp_fp: dict[str, list[tuple[bool, str]]] = {b: [] for b in BUCKET_ORDER}
+    bucket_tp_fp: dict[str, list[tuple[bool, float]]] = {b: [] for b in BUCKET_ORDER}
     bucket_n_gt: dict[str, int] = {b: 0 for b in BUCKET_ORDER}
     for cid, cls_name in enumerate(class_names):
         cls_result: dict[str, dict] = {}
         for bkt in BUCKET_ORDER:
-            tp_fp = tp_fp_lists.get((cid, bkt), [])
+            tp_fp = tp_fp_lists.get((cid, bkt), [])  # already confidence-desc within class
             n_gt = n_gt_cb.get((cid, bkt), 0)
             cls_result[bkt] = {"ap50": _ap_from_pr(tp_fp, n_gt), "n_gt": n_gt}
             bucket_n_gt[bkt] += n_gt
             bucket_tp_fp[bkt].extend(tp_fp)
         per_class[cls_name] = cls_result
 
-    overall = {bkt: {"ap50": _ap_from_pr(bucket_tp_fp[bkt], bucket_n_gt[bkt]),
-                     "n_gt": bucket_n_gt[bkt]} for bkt in BUCKET_ORDER}
-    return {"buckets": {k: list(v) for k, v in BUCKET_DEFS.items()},
+    # overall: re-sort each bucket globally by confidence desc (cross-class merge)
+    overall = {}
+    for bkt in BUCKET_ORDER:
+        merged = sorted(bucket_tp_fp[bkt], key=lambda t: -t[1])
+        overall[bkt] = {"ap50": _ap_from_pr(merged, bucket_n_gt[bkt]),
+                        "n_gt": bucket_n_gt[bkt]}
+    return {"buckets": {"small": [0, COCO_SMALL_MAX], "medium": [COCO_SMALL_MAX, COCO_MEDIUM_MAX],
+                        "large": [COCO_MEDIUM_MAX, None]},
             "overall": overall, "per_class": per_class}
 
 

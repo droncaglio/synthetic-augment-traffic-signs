@@ -7,10 +7,11 @@ from detection.stats import (
 
 CLASS_NAMES = ["A"]
 PIDS = ["p0", "p1", "p2", "p3"]
-GTS = {pid: [{"class_id": 0, "box": (0.5, 0.5, 0.04, 0.04)}] for pid in PIDS}
+# 0.01*2048 ~= 20px -> COCO small bucket (ap_small_overall metric)
+GTS = {pid: [{"class_id": 0, "box": (0.5, 0.5, 0.01, 0.01)}] for pid in PIDS}
 # baseline detects nothing; treatment detects A perfectly in every panorama
 BASELINE = {pid: [] for pid in PIDS}
-TREATMENT = {pid: [{"class_id": 0, "conf": 0.9, "box": (0.5, 0.5, 0.04, 0.04)}] for pid in PIDS}
+TREATMENT = {pid: [{"class_id": 0, "conf": 0.9, "box": (0.5, 0.5, 0.01, 0.01)}] for pid in PIDS}
 
 
 def test_percentile():

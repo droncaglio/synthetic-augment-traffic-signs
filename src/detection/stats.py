@@ -23,6 +23,23 @@ def ap_small_overall(ap_result: dict) -> float:
     return 0.0 if v is None or v != v else v  # NaN/None -> 0
 
 
+def make_macro_metric(subset: dict, tier: str | None = None, bucket: str = "small"):
+    """Build a metric(ap_result)->float = MACRO mean of per-class bucket AP.
+
+    Matches the reported headline (evaluate.derive_headline_metrics) so the bootstrap
+    CI validates the SAME number the paper shows. tier=None -> all subset classes;
+    tier='tail' -> AP-tail. Classes with NaN/absent AP are dropped from the mean.
+    """
+    names = subset["by_tier"][tier] if tier else subset["names"]
+
+    def metric(ap_result: dict) -> float:
+        vals = [ap_result["per_class"].get(n, {}).get(bucket, {}).get("ap50") for n in names]
+        vals = [v for v in vals if v is not None and v == v]
+        return sum(vals) / len(vals) if vals else 0.0
+
+    return metric
+
+
 def _percentile(sorted_vals: list[float], q: float) -> float:
     """Linear-interpolation percentile (q in [0,100]) of an already-sorted list."""
     if not sorted_vals:
