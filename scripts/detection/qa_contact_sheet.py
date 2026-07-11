@@ -43,11 +43,28 @@ def _boxes_px(label_path: Path, w: int, h: int) -> list[tuple]:
     return out
 
 
-def _draw(ax, img: np.ndarray, label_path: Path, title: str) -> None:
+def _zoom_crop(img: np.ndarray, boxes: list[tuple], pad: float):
+    """Crop a square window around the (first) sign box with `pad`x margin; return
+    (crop, boxes_shifted_to_crop). Makes ~30px signs big enough to judge the seam."""
     h, w = img.shape[:2]
-    ax.imshow(img)
-    for (x, y, bw, bh) in _boxes_px(label_path, w, h):
-        ax.add_patch(Rectangle((x, y), bw, bh, fill=False, edgecolor="lime", linewidth=1.5))
+    x, y, bw, bh = boxes[0]
+    cx, cy = x + bw / 2, y + bh / 2
+    half = max(bw, bh) * (0.5 + pad)
+    x0, y0 = max(0, int(cx - half)), max(0, int(cy - half))
+    x1, y1 = min(w, int(cx + half)), min(h, int(cy + half))
+    crop = img[y0:y1, x0:x1]
+    shifted = [(bx - x0, by - y0, bbw, bbh) for (bx, by, bbw, bbh) in boxes]
+    return crop, shifted
+
+
+def _draw(ax, img: np.ndarray, label_path: Path, title: str, zoom: float = 0.0) -> None:
+    h, w = img.shape[:2]
+    boxes = _boxes_px(label_path, w, h)
+    if zoom and boxes:
+        img, boxes = _zoom_crop(img, boxes, zoom)
+    ax.imshow(img, interpolation="nearest")   # nearest -> real pixels, seam not blurred
+    for (x, y, bw, bh) in boxes:
+        ax.add_patch(Rectangle((x, y), bw, bh, fill=False, edgecolor="lime", linewidth=1.0))
     ax.set_title(title, fontsize=7)
     ax.axis("off")
 
@@ -61,6 +78,9 @@ def main() -> None:
     ap.add_argument("--out", default=None)
     ap.add_argument("--pairs-per-row", type=int, default=2)
     ap.add_argument("--limit", type=int, default=0, help="cap tiles shown (0 = all present)")
+    ap.add_argument("--zoom", type=float, default=0.0,
+                    help="crop a window around each sign box with this much margin "
+                         "(e.g. 1.5) and magnify — reveals the composite seam")
     args = ap.parse_args()
 
     tiles, prepared = Path(args.tiles), Path(args.prepared)
@@ -90,10 +110,12 @@ def main() -> None:
         if src_stem is not None and (train_img / f"{src_stem}.jpg").exists():
             orig = np.asarray(Image.open(train_img / f"{src_stem}.jpg").convert("RGB"))
             _draw(axes[r][c * 2], orig, tiles / "train" / "labels" / f"{src_stem}.txt",
-                  f"orig {src_stem}")
-        _draw(axes[r][c * 2 + 1], gen_img, gen_lbl, f"gen {gpath.stem.split('_')[-1]}")
+                  f"orig {src_stem}", zoom=args.zoom)
+        _draw(axes[r][c * 2 + 1], gen_img, gen_lbl, f"gen {gpath.stem.split('_')[-1]}",
+              zoom=args.zoom)
 
-    fig.suptitle(f"QA {args.arm} — orig | gen (bbox=lime), seed {args.seed}, n={n}", fontsize=9)
+    tag = f", zoom×margin={args.zoom}" if args.zoom else ""
+    fig.suptitle(f"QA {args.arm} — orig | gen (bbox=lime), seed {args.seed}, n={n}{tag}", fontsize=9)
     fig.tight_layout(rect=(0, 0, 1, 0.98))
     out = Path(args.out or f"reports/qa/{args.arm}_seed{args.seed}.png")
     out.parent.mkdir(parents=True, exist_ok=True)
