@@ -26,6 +26,9 @@ analysis/**/*.png
 # Logs
 *.log
 
+# Segredos (Telegram)
+.env
+
 # OS/editor
 .DS_Store
 .idea/
