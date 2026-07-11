@@ -20,6 +20,26 @@ def test_water_fill_zero_budget():
     assert compute_water_fill({0: 5, 1: 3}, 0) == {0: 0, 1: 0}
 
 
+def test_water_fill_alpha_cap_limits_tiny_classes():
+    # class 1 has 10 real -> alpha=3 caps it at 30; without cap it would get 60
+    alloc = compute_water_fill({0: 100, 1: 10, 2: 50}, B=80, alpha=3.0)
+    assert alloc[1] == 30                 # capped at 3*10 (was 60 uncapped)
+    assert sum(alloc.values()) == 80      # remainder redistributed to class 2
+    assert alloc[2] == 50 and alloc[0] == 0
+
+
+def test_water_fill_all_capped_budget_shortfall():
+    # every class capped at 2x -> max total = 40 < B=100; sum reflects the cap
+    alloc = compute_water_fill({0: 10, 1: 10}, B=100, alpha=2.0)
+    assert alloc == {0: 20, 1: 20}
+    assert sum(alloc.values()) == 40      # < B, effective budget limited by caps
+
+
+def test_water_fill_g_max_absolute_cap():
+    alloc = compute_water_fill({0: 5, 1: 5}, B=100, g_max=8)
+    assert alloc == {0: 8, 1: 8}          # absolute cap per class
+
+
 def test_water_fill_is_deterministic_and_arm_independent():
     counts = {0: 100, 1: 7, 2: 7, 3: 40}
     a = compute_water_fill(counts, 33)
