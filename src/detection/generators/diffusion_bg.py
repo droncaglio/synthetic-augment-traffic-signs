@@ -23,7 +23,7 @@ import random
 
 import numpy as np
 
-from detection.generators.base import ArmGenerator
+from detection.generators.base import ArmGenerator, feather_alpha
 from detection.generators.bg_photometric import _yolo_to_px
 
 
@@ -119,9 +119,16 @@ class DiffusionBg(ArmGenerator):
                        num_inference_steps=self.steps, guidance_scale=self.guidance,
                        generator=gen).images[0]
             out = np.array(out.convert("RGB"))  # copy -> writable for the sign composite
-            # composite the real sign crops back (guard edge bleed) -> label stays valid
+            # composite the real sign crops back with a feathered edge (same blend as
+            # copy_paste) -> no hard rectangular seam, sign core stays intact, label valid
             for (x1, y1, x2, y2) in sign_boxes:
-                out[y1:y2, x1:x2] = img[y1:y2, x1:x2]
+                th, tw = y2 - y1, x2 - x1
+                if th <= 0 or tw <= 0:
+                    continue
+                a = feather_alpha(th, tw)[..., None]
+                region = out[y1:y2, x1:x2].astype(np.float32)
+                crop = img[y1:y2, x1:x2].astype(np.float32)
+                out[y1:y2, x1:x2] = (a * crop + (1 - a) * region).astype(np.uint8)
             if not self._hallucinated(out, sign_boxes):
                 return out, labels
         return None  # rejected max_regen times -> skip (caller may fall back)

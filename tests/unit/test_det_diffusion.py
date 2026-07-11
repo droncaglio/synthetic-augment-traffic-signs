@@ -76,13 +76,15 @@ def test_hallucinated_false_without_scanner():
 
 
 def test_make_tile_composites_real_sign_over_regenerated_bg():
-    """Background comes from the (read-only) FluxFill output; the sign bbox must be the
-    ORIGINAL pixels pasted back, so the YOLO label stays valid."""
+    """Background = (read-only) FluxFill output; the sign is the ORIGINAL crop pasted
+    back with a FEATHERED edge — core stays byte-identical, border ramps (no hard seam),
+    label stays valid. Box 40px wide -> ~4px ramp, so the inner core is untouched."""
     gen = DiffusionBg("unused", seed=0, imgsz=100)
     gen._pipe = _FakePipe(fill=7)                           # "regenerated" bg = 7
     sign = np.full((100, 100, 3), 200, np.uint8)            # original tile = 200
-    gen.load_tile = lambda name: (sign, ["0 0.5 0.5 0.1 0.1"], [])
+    gen.load_tile = lambda name: (sign, ["0 0.5 0.5 0.2 0.2"], [])   # bbox px (40,40,60,60)
     out, labels = gen.make_tile({"source_tile": "t"}, random.Random(0))
-    assert labels == ["0 0.5 0.5 0.1 0.1"]
-    assert (out[45:55, 45:55] == 200).all()                # sign bbox = original pixels
-    assert (out[:40, :40] == 7).all()                      # background = regenerated
+    assert labels == ["0 0.5 0.5 0.2 0.2"]
+    assert (out[46:54, 46:54] == 200).all()                # core = original sign pixels
+    assert (out[:38, :38] == 7).all()                      # background = regenerated
+    assert 7 < out[40, 50, 0] < 200                        # bbox edge = feathered blend

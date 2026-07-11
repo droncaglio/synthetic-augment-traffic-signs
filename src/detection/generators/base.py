@@ -24,6 +24,23 @@ from PIL import Image
 from detection.generators.manifests import per_class_counts
 
 
+def feather_alpha(th: int, tw: int) -> np.ndarray:
+    """Alpha (th,tw) = 1 in the center, ramping to ~0 over a small border (soft paste).
+
+    Shared by every arm that composites a real sign crop onto a new background
+    (copy_paste, diffusion_bg) so the blend — and thus the edge artifact — is
+    IDENTICAL across arms and can't confound the comparison.
+    """
+    f = max(1, min(tw, th) // 10)
+    ay = np.ones(th, np.float32)
+    ax = np.ones(tw, np.float32)
+    for i in range(f):
+        v = (i + 1) / (f + 1)
+        ay[i] = ay[-1 - i] = min(ay[i], v)
+        ax[i] = ax[-1 - i] = min(ax[i], v)
+    return np.minimum(ay[:, None], ax[None, :])
+
+
 class ArmGenerator(ABC):
     """Base class. Subclasses implement make_tile() for one source instance."""
 
