@@ -128,6 +128,9 @@ def main() -> None:
     ap.add_argument("--configs", default="configs/detection")
     ap.add_argument("--project", default="experiments/tt100k")
     args = ap.parse_args()
+    # Ultralytics prepends runs/detect/ to a RELATIVE project; make it absolute so the
+    # output lands exactly at <project>/<exp>/ — the path batch_run_det/det_report expect.
+    args.project = str(Path(args.project).resolve())
 
     prepared, tiles_dir, cfgs = Path(args.prepared), Path(args.tiles), Path(args.configs)
     subset = json.loads((prepared / "subset.json").read_text())
