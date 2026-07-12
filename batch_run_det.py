@@ -90,6 +90,10 @@ def main() -> None:
     ap.add_argument("--retry-failed", action="store_true")
     ap.add_argument("--skip-generate", action="store_true",
                     help="assume all content-arm tiles are already generated")
+    ap.add_argument("--arms", nargs="+", default=None,
+                    help="subset of arms to run (default: all in the batch config)")
+    ap.add_argument("--seeds", type=int, nargs="+", default=None,
+                    help="subset of seeds to run (default: all in the batch config)")
     ap.add_argument("--dry-run", action="store_true")
     args = ap.parse_args()
 
@@ -97,13 +101,15 @@ def main() -> None:
     K = float(cfg.get("K", 0.5))
     bm = budget_tag(K)
     dataset = cfg.get("dataset", "tt100k")
-    runs = [(arm, seed) for arm in cfg["arms"] for seed in cfg["seeds"]]
+    arms = args.arms or cfg["arms"]
+    seeds = args.seeds or cfg["seeds"]
+    runs = [(arm, seed) for arm in arms for seed in seeds]
 
     status_path = Path(args.status_file)
     status = _load_status(status_path)
     status["batch"] = cfg.get("name", Path(args.batch).stem)
 
-    print(f"grid: {len(runs)} runs ({len(cfg['arms'])} arms x {len(cfg['seeds'])} seeds), "
+    print(f"grid: {len(runs)} runs ({len(arms)} arms x {len(seeds)} seeds), "
           f"K={K}, base_epochs={args.base_epochs}")
     ensured: set = set()  # arms whose generation we've handled this invocation
     for arm, seed in runs:
