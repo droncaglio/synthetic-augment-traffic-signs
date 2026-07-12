@@ -33,7 +33,7 @@ from detection.evaluate import evaluate_split
 from detection.ap_by_size import nan_safe_dumps
 from detection.run_naming import experiment_name
 from detection.budget import budget_tag
-from detection.notifications.telegram import TelegramNotifier
+from detection.notifications.telegram import TelegramNotifier, _NullNotifier
 
 ROOT = Path(__file__).resolve().parent
 
@@ -127,6 +127,9 @@ def main() -> None:
     ap.add_argument("--tiles", default="data/tt100k/tiles")
     ap.add_argument("--configs", default="configs/detection")
     ap.add_argument("--project", default="experiments/tt100k")
+    ap.add_argument("--no-notify", action="store_true",
+                    help="disable this run's own Telegram messages (the batch owns the "
+                         "grid-level X/N progress notifications)")
     args = ap.parse_args()
     # Ultralytics prepends runs/detect/ to a RELATIVE project; make it absolute so the
     # output lands exactly at <project>/<exp>/ — the path batch_run_det/det_report expect.
@@ -138,7 +141,7 @@ def main() -> None:
     model_cfg = _load_yaml(cfgs / "model" / "yolo11n.yaml")
 
     exp = experiment_name(args.arm, args.seed, smoke=args.smoke, budget_tag=budget_tag(args.K))
-    notifier = TelegramNotifier.from_env()
+    notifier = _NullNotifier() if args.no_notify else TelegramNotifier.from_env()
     notifier.send_separator()
     notifier.send_start(exp, {"dataset": "tt100k", "arm": args.arm, "seed": args.seed,
                               "smoke": args.smoke})

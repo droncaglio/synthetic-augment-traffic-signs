@@ -16,8 +16,10 @@ from __future__ import annotations
 
 import argparse
 import json
+import socket
 import subprocess
 import sys
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -27,10 +29,23 @@ ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT / "src"))
 from detection.run_naming import experiment_name  # noqa: E402
 from detection.budget import budget_tag  # noqa: E402
+from detection.notifications.telegram import TelegramNotifier  # noqa: E402
+
+HOST = socket.gethostname()
 
 
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
+
+
+def _fmt(x) -> str:
+    return f"{x:.4f}" if isinstance(x, (int, float)) else "—"
+
+
+def _dur(sec: float) -> str:
+    m, s = divmod(int(sec), 60)
+    h, m = divmod(m, 60)
+    return f"{h}h{m:02d}m" if h else f"{m}m{s:02d}s"
 
 
 def _load_status(path: Path) -> dict:
@@ -104,14 +119,24 @@ def main() -> None:
     arms = args.arms or cfg["arms"]
     seeds = args.seeds or cfg["seeds"]
     runs = [(arm, seed) for arm in arms for seed in seeds]
+    batch_name = cfg.get("name", Path(args.batch).stem)
 
     status_path = Path(args.status_file)
     status = _load_status(status_path)
-    status["batch"] = cfg.get("name", Path(args.batch).stem)
+    status["batch"] = batch_name
 
-    print(f"grid: {len(runs)} runs ({len(arms)} arms x {len(seeds)} seeds), "
+    total = len(runs)  # denominator of the X/N progress counter
+    print(f"grid: {total} runs ({len(arms)} arms x {len(seeds)} seeds), "
           f"K={K}, base_epochs={args.base_epochs}")
-    ensured: set = set()  # arms whose generation we've handled this invocation
+
+    notifier = None if args.dry_run else TelegramNotifier.from_env()
+    if notifier:
+        notifier.send_separator()
+        notifier.send_message(f"📦 <b>GRID STARTED</b>\n<code>{batch_name}</code>\n"
+                              f"🖥️ {HOST}\n🎯 {total} runs · K={K} · {args.base_epochs} ép.")
+
+    ensured: set = set()   # arms whose generation we've handled this invocation
+    done_n = fail_n = skip_n = 0
     for arm, seed in runs:
         exp = experiment_name(arm, seed, budget_tag=bm)
         rid = f"{dataset}_{exp}"
@@ -120,11 +145,17 @@ def main() -> None:
         done = ap_report.exists() and prev.get("status") == "done"
         if done and not (args.retry_failed and prev.get("status") == "failed"):
             print(f"skip (done): {rid}")
+            skip_n += 1
+            done_n += 1  # count toward the X/N progress (already complete)
             continue
 
         # ENIAC-style: ensure the arm's synthetic tiles exist before its first run.
         if (not args.skip_generate and arm in CONTENT_ARMS and arm not in ensured
                 and not _arm_generated(args.tiles, arm)):
+            if notifier:
+                extra = " (~17h)" if arm == "diffusion_bg" else ""
+                notifier.send_message(f"🎨 <b>GENERATING</b> <code>{arm}</code>{extra} "
+                                      f"[{done_n + fail_n}/{total}]")
             _generate_arm(arm, args, bm, dry=args.dry_run)
             ensured.add(arm)
 
@@ -132,14 +163,17 @@ def main() -> None:
             print(f"would run: {rid}")
             continue
 
-        print(f"RUN: {rid}")
+        idx = done_n + fail_n + 1  # 1-based position of THIS run in the grid
+        print(f"RUN [{idx}/{total}]: {rid}")
         status["runs"][rid] = {"arm": arm, "seed": seed, "status": "running",
                                "started_at": _now()}
         status_path.write_text(json.dumps(status, indent=2))
         cmd = [sys.executable, str(ROOT / "run_det.py"), "--arm", arm, "--seed", str(seed),
                "--K", str(K), "--device", args.device, "--base-epochs", str(args.base_epochs),
-               "--project", args.project]
+               "--project", args.project, "--no-notify"]  # batch owns grid notifications
+        t0 = time.time()
         proc = subprocess.run(cmd)
+        dt = time.time() - t0
         if proc.returncode == 0 and ap_report.exists():
             rep = json.loads(ap_report.read_text())
             hl = rep.get("headline", {})
@@ -147,14 +181,38 @@ def main() -> None:
                                         "ap_small_macro": hl.get("ap_small_macro"),
                                         "ap_tail": hl.get("ap_tail"),
                                         "loss_smoke_ok": rep.get("meta", {}).get("loss_smoke_ok")})
+            done_n += 1
+            if notifier:
+                notifier.send_message(
+                    f"✅ <b>DONE ({done_n + fail_n}/{total})</b>\n<code>{rid}</code>\n"
+                    f"🪶 AP-cauda: <b>{_fmt(hl.get('ap_tail'))}</b> · "
+                    f"📊 AP@small: {_fmt(hl.get('ap_small_macro'))} · ⏱️ {_dur(dt)}")
         else:
             status["runs"][rid].update({"status": "failed", "finished_at": _now(),
                                         "returncode": proc.returncode})
+            fail_n += 1
+            if notifier:
+                notifier.send_message(
+                    f"❌ <b>FAILED ({done_n + fail_n}/{total})</b>\n<code>{rid}</code>\n"
+                    f"returncode={proc.returncode} · ⏱️ {_dur(dt)}")
         status_path.write_text(json.dumps(status, indent=2))
 
     n_done = sum(1 for r in status["runs"].values() if r.get("status") == "done")
     n_fail = sum(1 for r in status["runs"].values() if r.get("status") == "failed")
     print(f"\nbatch done: {n_done} ok, {n_fail} failed -> {status_path}")
+    if notifier:
+        lines = [f"📋 <b>GRID DONE</b>", f"<code>{batch_name}</code>", f"🖥️ {HOST}", "",
+                 f"✅ {n_done}/{total} OK · ❌ {n_fail} failed · ⏭️ {skip_n} já prontos",
+                 "──────────────"]
+        for (arm, seed) in runs:
+            r = status["runs"].get(f"{dataset}_{experiment_name(arm, seed, budget_tag=bm)}", {})
+            st = r.get("status", "?")
+            if st == "done":
+                lines.append(f"✅ <code>{arm} s{seed}</code> "
+                             f"cauda={_fmt(r.get('ap_tail'))} small={_fmt(r.get('ap_small_macro'))}")
+            else:
+                lines.append(f"❌ <code>{arm} s{seed}</code> [{st}]")
+        notifier.send_message("\n".join(lines))
 
 
 if __name__ == "__main__":

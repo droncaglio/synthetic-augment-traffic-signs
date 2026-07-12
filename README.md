@@ -17,6 +17,42 @@ conda activate augment-traffic-signs
 
 Testes unitários (sem GPU): `pytest tests/unit -q`.
 
+## Reprodução (um comando)
+
+`reproduce.py` orquestra o experimento de ponta a ponta:
+
+```bash
+python reproduce.py                 # check → download → prepare → train → report
+```
+
+Steps (rodáveis isolados com `--step <nome>`):
+
+| step | o que faz |
+|---|---|
+| `check` | valida env/GPU/deps **e** os extras de difusão (`bitsandbytes`, `HF_TOKEN` no `.env`) — falha rápido antes do passe longo |
+| `download` | verifica o TT100K 2021; auto-baixa o zip se faltar |
+| `prepare` | espinha de dados idempotente: `prepare_tt100k → select_subset → make_splits` (split por panorama + pHash near-dup + `assert_no_leak`) `→ tile_panoramas{train,val,test} → build_allocation` (K=0.5) |
+| `generate` | materializa os tiles sintéticos dos braços (difusão com `--resume` + scanner = zero_aug seed 0). Opcional: `train`/`all` já auto-preparam cada braço sob demanda |
+| `train` | `batch_run_det.py` — grid 6 braços × 7 seeds, steps de otimização igualados, status resumível |
+| `report` | `det_report.py` — AP por braço + contrastes primários com bootstrap CI pareado por seed |
+
+Modos úteis:
+
+```bash
+python reproduce.py --smoke                 # valida a espinha (1 seed, 2 épocas, sem difusão)
+python reproduce.py --dry-run               # prevê tudo sem executar
+python reproduce.py --step generate --arm diffusion_bg   # só o passe de difusão (~17h)
+python reproduce.py --step report --eval-split test      # contrastes finais no test
+```
+
+**Escada de custo de novidade de contexto** (braços): `zero_aug` · `da_only` ·
+`real_duplicate` · `bg_photometric` · `copy_paste` · `diffusion_bg`. A difusão
+regenera o **fundo** (FluxFill máscara invertida), preservando a placa real
+recomposta com feather; uma varredura anti-alucinação (scanner) rejeita/regenera
+tiles com placa inventada. Detector `yolo11n`, avaliação por **reconstrução no
+panorama 2048 + NMS global**. Saídas: `experiments/tt100k/<arm>_<seed>/` e
+`reports/det/report.md`. Notificações de progresso via Telegram (`.env`, ver `.env.example`).
+
 ## Dataset (TT100K)
 
 Não versionado. Baixar sob `data/raw/` a partir da fonte oficial da Tsinghua
