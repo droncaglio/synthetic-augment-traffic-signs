@@ -25,7 +25,6 @@ import argparse
 import json
 from pathlib import Path
 
-import cv2
 import numpy as np
 from PIL import Image
 import matplotlib
@@ -42,15 +41,17 @@ DA_AUG = {"fliplr": 0.5, "hsv_h": 0.015, "hsv_s": 0.7, "hsv_v": 0.4}
 
 
 def _augment_hsv(img: np.ndarray, h: float, s: float, v: float, rng) -> np.ndarray:
-    """Ultralytics augment_hsv (RGB in/out)."""
-    r = rng.uniform(-1, 1, 3) * [h, s, v] + 1
-    hue, sat, val = cv2.split(cv2.cvtColor(img, cv2.COLOR_RGB2HSV))
-    x = np.arange(256, dtype=r.dtype)
-    lut_h = ((x * r[0]) % 180).astype(np.uint8)
-    lut_s = np.clip(x * r[1], 0, 255).astype(np.uint8)
-    lut_v = np.clip(x * r[2], 0, 255).astype(np.uint8)
-    merged = cv2.merge((cv2.LUT(hue, lut_h), cv2.LUT(sat, lut_s), cv2.LUT(val, lut_v)))
-    return cv2.cvtColor(merged, cv2.COLOR_HSV2RGB)
+    """Ultralytics-style HSV jitter (RGB in/out), via PIL — no cv2 dependency.
+
+    PIL 'HSV' hue is 0-255 (cv2 uses 0-179), so the hue wrap is mod 256; the visual
+    effect matches — this render is a REPRESENTATIVE illustration of the da_only arm.
+    """
+    r = rng.uniform(-1, 1, 3) * [h, s, v] + 1.0
+    hsv = np.asarray(Image.fromarray(img).convert("HSV")).astype(np.float32)
+    hsv[..., 0] = (hsv[..., 0] * r[0]) % 256
+    hsv[..., 1] = np.clip(hsv[..., 1] * r[1], 0, 255)
+    hsv[..., 2] = np.clip(hsv[..., 2] * r[2], 0, 255)
+    return np.asarray(Image.fromarray(hsv.astype(np.uint8), "HSV").convert("RGB"))
 
 
 def _da_only(img: np.ndarray, box, rng):
