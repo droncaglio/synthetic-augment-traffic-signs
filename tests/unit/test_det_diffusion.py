@@ -88,3 +88,28 @@ def test_make_tile_composites_real_sign_over_regenerated_bg():
     assert (out[46:54, 46:54] == 200).all()                # core = original sign pixels
     assert (out[:38, :38] == 7).all()                      # background = regenerated
     assert 7 < out[40, 50, 0] < 200                        # bbox edge = feathered blend
+    assert gen._scan_stats["tiles"] == 1 and gen._scan_stats["rejected"] == 0
+
+
+def test_make_tile_regenerates_on_hallucination_and_logs_stats():
+    """Scanner fires on attempt 1 (sign OUTSIDE bbox), clean on attempt 2 -> the tile is
+    kept but scan_stats records the regeneration and the fired scan (audit evidence)."""
+    gen = DiffusionBg("unused", seed=0, imgsz=100, scan_weights="x")
+    gen._pipe = _FakePipe(fill=7)
+    calls = {"n": 0}
+
+    class _FlakyScanner:
+        def predict(self, *a, **k):
+            calls["n"] += 1
+            off = [[0.1, 0.1, 0.05, 0.05]] if calls["n"] == 1 else []  # hallucinate once
+            return [_FakeResult(off)]
+
+    gen._scanner = _FlakyScanner()
+    gen.load_tile = lambda name: (np.full((100, 100, 3), 200, np.uint8),
+                                  ["0 0.5 0.5 0.2 0.2"], [])
+    out, labels = gen.make_tile({"source_tile": "t"}, random.Random(0))
+    assert out is not None                                  # kept after retry
+    assert gen._scan_stats["attempts"] == 2
+    assert gen._scan_stats["regenerated"] == 1
+    assert gen._scan_stats["scan_fired"] == 1
+    assert gen._scan_stats["rejected"] == 0

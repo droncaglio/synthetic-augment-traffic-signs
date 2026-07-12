@@ -44,6 +44,12 @@ class DiffusionBg(ArmGenerator):
         self.imgsz = imgsz
         self._pipe = None
         self._scanner = None
+        # scan telemetry -> manifest (evidence: scan is alive + rejection rate).
+        # scan_detections>0 proves the scanner fires at all (it sees the real signs);
+        # scan_fired = tiles where it detected a sign OUTSIDE the bbox (a hallucination).
+        self._scan_stats = {"tiles": 0, "attempts": 0, "regenerated": 0, "rejected": 0,
+                            "scan_fired": 0, "scan_detections": 0,
+                            "scanner": scan_weights, "scan_conf": scan_conf}
 
     # -- lazy heavy resources (GPU) ---------------------------------------
     def _load_pipe(self):
@@ -91,11 +97,14 @@ class DiffusionBg(ArmGenerator):
         h, w = out_img.shape[:2]
         r = scanner.predict(out_img, conf=self.scan_conf, verbose=False, save=False)
         b = r[0].boxes
-        if b is None or len(b) == 0:
+        n = 0 if b is None else len(b)
+        self._scan_stats["scan_detections"] += n  # >0 total => scanner is alive
+        if n == 0:
             return False
         for cx, cy, bw, bh in b.xywhn.cpu().numpy():
             px, py = cx * w, cy * h
             if not any(x1 <= px <= x2 and y1 <= py <= y2 for x1, y1, x2, y2 in sign_boxes):
+                self._scan_stats["scan_fired"] += 1
                 return True  # a detection whose center is not on a real sign -> hallucination
         return False
 
@@ -112,7 +121,9 @@ class DiffusionBg(ArmGenerator):
         bg = Image.fromarray(img)
         sign_boxes = self._sign_boxes_px(labels, w, h)
 
+        self._scan_stats["tiles"] += 1
         for attempt in range(self.max_regen):
+            self._scan_stats["attempts"] += 1
             gen = torch.Generator("cpu").manual_seed(rng.randrange(2 ** 31))
             out = pipe(prompt=self.prompt, image=bg, mask_image=mask,
                        height=self.imgsz, width=self.imgsz,
@@ -130,5 +141,8 @@ class DiffusionBg(ArmGenerator):
                 crop = img[y1:y2, x1:x2].astype(np.float32)
                 out[y1:y2, x1:x2] = (a * crop + (1 - a) * region).astype(np.uint8)
             if not self._hallucinated(out, sign_boxes):
+                if attempt > 0:
+                    self._scan_stats["regenerated"] += 1  # succeeded but needed retries
                 return out, labels
+        self._scan_stats["rejected"] += 1
         return None  # rejected max_regen times -> skip (caller may fall back)

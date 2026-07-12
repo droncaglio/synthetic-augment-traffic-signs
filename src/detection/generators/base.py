@@ -96,5 +96,7 @@ class ArmGenerator(ABC):
             "allocated_per_class": per_class_counts(sources),
             "realized_per_class": per_class_counts(realized_labels),  # incl. co-occurring signs
         }
+        if getattr(self, "_scan_stats", None) is not None:
+            manifest["scan_stats"] = self._scan_stats  # diffusion anti-hallucination audit
         (out_dir / "generation_manifest.json").write_text(json.dumps(manifest, indent=2))
         return manifest
