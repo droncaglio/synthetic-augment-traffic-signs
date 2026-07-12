@@ -123,11 +123,13 @@ def main() -> None:
     ap.add_argument("--prepared", default="data/tt100k/prepared")
     ap.add_argument("--seed", type=int, default=42)
     ap.add_argument("--n", type=int, default=8, help="number of sample signs (rows)")
+    ap.add_argument("--indices", type=int, nargs="+", default=None,
+                    help="explicit source indices to show (cherry-pick; overrides --n/--class-id)")
     ap.add_argument("--class-id", type=int, default=None, help="only sample this class")
     ap.add_argument("--zoom", type=float, default=1.6)
     ap.add_argument("--boxes", action="store_true", help="draw the sign bbox (default off)")
     ap.add_argument("--render-seed", type=int, default=0, help="RNG for the da_only render")
-    ap.add_argument("--out", default="reports/qa/paper_ladder.png")
+    ap.add_argument("--out", default="reports/qa/ladder/paper_ladder.png")
     ap.add_argument("--per-sample", action="store_true",
                     help="also write one PNG per sign (a 1xN arm row) -> <out>__<tile>.png")
     ap.add_argument("--per-cell", action="store_true",
@@ -140,13 +142,18 @@ def main() -> None:
     train_img = tiles / "train" / "images"
     rng = np.random.default_rng(args.render_seed)
 
-    # pick sample source indices (optionally filtered by class), spread across the list
-    idxs = [i for i, s in enumerate(sources)
-            if args.class_id is None or s["class_id"] == args.class_id]
-    if not idxs:
-        raise SystemExit(f"no sources for class_id={args.class_id}")
-    step = max(1, len(idxs) // args.n)
-    picks = idxs[::step][:args.n]
+    # pick sample source indices: explicit cherry-pick, else spread across the class
+    if args.indices:
+        picks = [i for i in args.indices if 0 <= i < len(sources)]
+        if not picks:
+            raise SystemExit(f"--indices out of range (n_sources={len(sources)})")
+    else:
+        idxs = [i for i, s in enumerate(sources)
+                if args.class_id is None or s["class_id"] == args.class_id]
+        if not idxs:
+            raise SystemExit(f"no sources for class_id={args.class_id}")
+        step = max(1, len(idxs) // args.n)
+        picks = idxs[::step][:args.n]
 
     out = Path(args.out)
     out.parent.mkdir(parents=True, exist_ok=True)

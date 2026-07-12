@@ -117,7 +117,7 @@ def main() -> None:
     tag = f", zoom×margin={args.zoom}" if args.zoom else ""
     fig.suptitle(f"QA {args.arm} — orig | gen (bbox=lime), seed {args.seed}, n={n}{tag}", fontsize=9)
     fig.tight_layout(rect=(0, 0, 1, 0.98))
-    out = Path(args.out or f"reports/qa/{args.arm}_seed{args.seed}.png")
+    out = Path(args.out or f"reports/qa/contact_sheets/{args.arm}_seed{args.seed}.png")
     out.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(out, dpi=130)
     print(f"-> {out}  ({n} tiles)")
