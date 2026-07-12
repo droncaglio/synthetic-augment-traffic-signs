@@ -35,7 +35,7 @@ def test_load_runs_skips_missing_seeds(tmp_path):
     (d / "dets.json").write_text(json.dumps(
         {"p0": [{"class_id": 0, "conf": 0.9, "box": [0.5, 0.5, 0.1, 0.1]}]}))
     runs = load_runs(tmp_path, "real_duplicate", [0, 1], "bm050")  # seed 1 absent
-    assert len(runs) == 1
+    assert set(runs) == {0}                 # keyed by seed -> pairs on intersection
     hl, dj = runs[0]
     assert hl["ap_tail"] == 0.3
     assert dj["p0"][0]["box"] == (0.5, 0.5, 0.1, 0.1)  # tuple, ready for bootstrap

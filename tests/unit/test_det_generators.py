@@ -39,6 +39,21 @@ def test_real_duplicate_generates_and_preserves_labels(tmp_path):
     assert manifest["n_tiles_written"] == 2
 
 
+def test_generate_resume_skips_existing_and_keeps_manifest_correct(tmp_path):
+    _fake_train(tmp_path)
+    sources = [{"class_id": 0, "source_tile": "t0", "bbox": [0.5, 0.5, 0.1, 0.1]}] * 3
+    out = tmp_path / "arms" / "real_duplicate"
+    RealDuplicate(tmp_path, seed=1).generate(sources[:1], out)   # 1st run: 1 tile
+    assert len(list((out / "images").glob("*.jpg"))) == 1
+
+    # resume with the full list -> keeps the existing tile, adds the 2 missing ones,
+    # and the manifest re-counts the existing tile from disk (correct totals).
+    m = RealDuplicate(tmp_path, seed=1).generate(sources, out, resume=True)
+    assert len(list((out / "images").glob("*.jpg"))) == 3
+    assert m["n_tiles_written"] == 3
+    assert m["realized_per_class"] == {0: 3}
+
+
 def test_bg_photometric_preserves_sign_perturbs_background(tmp_path):
     timg = tmp_path / "train" / "images"
     tlbl = tmp_path / "train" / "labels"

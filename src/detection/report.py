@@ -32,9 +32,14 @@ def gts_by_pid(records: dict, split_ids: list, subset_ids: dict, size: int = 204
     return out
 
 
-def load_runs(project: str | Path, arm: str, seeds, bm: str) -> list[tuple[dict, dict]]:
-    """Per-seed (headline, dets_by_pid) for an arm; skips seeds without ap_report+dets."""
-    runs = []
+def load_runs(project: str | Path, arm: str, seeds, bm: str) -> dict:
+    """{seed: (headline, dets_by_pid)} for an arm; skips seeds without ap_report+dets.
+
+    Keyed by seed (not a bare list) so contrasts pair on the INTERSECTION of present
+    seeds — a partial/resumed grid with different missing seeds per arm must not
+    misalign the paired bootstrap.
+    """
+    runs = {}
     for s in seeds:
         d = Path(project) / experiment_name(arm, s, budget_tag=bm)
         rep, dets = d / "ap_report.json", d / "dets.json"
@@ -42,12 +47,17 @@ def load_runs(project: str | Path, arm: str, seeds, bm: str) -> list[tuple[dict,
             hl = json.loads(rep.read_text()).get("headline", {})
             dj = {pid: [{"class_id": x["class_id"], "conf": x["conf"], "box": tuple(x["box"])}
                         for x in dl] for pid, dl in json.loads(dets.read_text()).items()}
-            runs.append((hl, dj))
+            runs[s] = (hl, dj)
     return runs
 
 
-def aggregate_arm(runs: list[tuple[dict, dict]]) -> dict | None:
-    """Mean ± std of AP-tail / AP@small(macro) over an arm's seeds."""
+def aggregate_arm(runs) -> dict | None:
+    """Mean ± sample std of AP-tail / AP@small(macro) over an arm's seeds.
+
+    `runs` is an iterable of (headline, dets) pairs (e.g. load_runs(...).values()).
+    Sample std (n-1) — these seeds are a sample of the seed population, not the whole.
+    """
+    runs = list(runs)
     if not runs:
         return None
     tail = [hl.get("ap_tail", 0.0) for hl, _ in runs]
@@ -55,7 +65,7 @@ def aggregate_arm(runs: list[tuple[dict, dict]]) -> dict | None:
     return {
         "n_seeds": len(runs),
         "ap_tail_mean": round(st.mean(tail), 4),
-        "ap_tail_std": round(st.pstdev(tail), 4) if len(tail) > 1 else 0.0,
+        "ap_tail_std": round(st.stdev(tail), 4) if len(tail) > 1 else 0.0,
         "ap_small_mean": round(st.mean(small), 4),
-        "ap_small_std": round(st.pstdev(small), 4) if len(small) > 1 else 0.0,
+        "ap_small_std": round(st.stdev(small), 4) if len(small) > 1 else 0.0,
     }

@@ -35,6 +35,8 @@ def main() -> None:
     ap.add_argument("--eval-split", default="val", choices=["val", "test"])
     ap.add_argument("--K", type=float, default=0.5)
     ap.add_argument("--n-boot", type=int, default=1000)
+    ap.add_argument("--seeds", type=int, nargs="+", default=list(range(7)),
+                    help="seeds to aggregate (default 0..6); matches the grid config")
     ap.add_argument("--out", default="reports/det")
     args = ap.parse_args()
 
@@ -49,27 +51,29 @@ def main() -> None:
     gts = gts_by_pid(records, pids, subset_ids, 2048)
     bm = budget_tag(args.K)
 
-    # per-arm aggregate + collect runs
+    # per-arm aggregate + collect runs (keyed by seed)
     runs_by_arm, agg = {}, {}
     for arm in ARMS:
-        runs = load_runs(args.project, arm, range(7), bm)  # up to 7 seeds
+        runs = load_runs(args.project, arm, args.seeds, bm)  # {seed: (hl, dets)}
         runs_by_arm[arm] = runs
-        a = aggregate_arm(runs)
+        a = aggregate_arm(runs.values())
         if a:
             agg[arm] = a
 
-    # paired bootstrap CIs for the primary contrasts (metric = reported macro)
+    # paired bootstrap CIs for the primary contrasts (metric = reported macro).
+    # Pair on the INTERSECTION of seeds present in BOTH arms (partial/resumed grids).
     metric_tail = make_macro_metric(subset, tier="tail")
     metric_small = make_macro_metric(subset)  # all subset classes, small bucket
     contrasts = []
     for treat, base in CONTRASTS:
-        tr, ba = runs_by_arm.get(treat, []), runs_by_arm.get(base, [])
-        if not tr or not ba:
+        tr, ba = runs_by_arm.get(treat, {}), runs_by_arm.get(base, {})
+        common = sorted(set(tr) & set(ba))
+        if not common:
             continue
-        n = min(len(tr), len(ba))
-        base_runs = [d for _, d in ba[:n]]
-        treat_runs = [d for _, d in tr[:n]]
-        row = {"treatment": treat, "baseline": base, "n_seeds": n}
+        base_runs = [ba[s][1] for s in common]
+        treat_runs = [tr[s][1] for s in common]
+        row = {"treatment": treat, "baseline": base, "n_seeds": len(common),
+               "seeds": common}
         for label, metric in [("ap_tail", metric_tail), ("ap_small", metric_small)]:
             b = bootstrap_delta_ap(base_runs, treat_runs, gts, class_names, pids,
                                    metric=metric, n_boot=args.n_boot, seed=0)

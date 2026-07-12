@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import json
 import random
+import warnings
 from collections import defaultdict
 from pathlib import Path
 
@@ -49,14 +50,22 @@ def select_sources(alloc: dict[str, int], index: dict[int, list], seed: int) -> 
     """
     rng = random.Random(seed)
     sources: list[dict] = []
+    starved = []
     for cid_str in sorted(alloc, key=lambda k: int(k)):
         cid, n = int(cid_str), int(alloc[cid_str])
         pool = index.get(cid, [])
+        if n > 0 and not pool:
+            starved.append((cid, n))   # allocated budget but no single-sign source tiles
+            continue
         if not pool or n <= 0:
             continue
         for _ in range(n):
             tile, box = pool[rng.randrange(len(pool))]
             sources.append({"class_id": cid, "source_tile": tile, "bbox": list(box)})
+    if starved:
+        warnings.warn(f"select_sources: {len(starved)} class(es) with allocated budget but no "
+                      f"single-sign source tiles (class_id, allocated): {starved} — these get "
+                      f"0 synthetic tiles (under-fill).")
     return sources
 
 

@@ -49,6 +49,8 @@ def main() -> None:
                     help="diffusion_bg: permit running without the hallucination scan (dev only)")
     ap.add_argument("--limit", type=int, default=0,
                     help="generate only the first N sources (0 = all) — for a quick visual QA")
+    ap.add_argument("--resume", action="store_true",
+                    help="skip tiles already written (crash-safe for the long diffusion pass)")
     ap.add_argument("--device", default=None,
                     help="diffusion_bg: GPU index to pin via CUDA_VISIBLE_DEVICES (e.g. 0)")
     args = ap.parse_args()
@@ -84,7 +86,7 @@ def main() -> None:
         gen = ARM_REGISTRY[args.arm](tiles, seed=args.seed)
     if args.limit:
         entries = entries[:args.limit]
-    manifest = gen.generate(entries, tiles / "arms" / args.arm)
+    manifest = gen.generate(entries, tiles / "arms" / args.arm, resume=args.resume)
     print(f"[{args.arm}] sources={len(sources)} tiles_written={manifest['n_tiles_written']}")
     print(f"  allocated/class={manifest['allocated_per_class']}")
     print(f"-> {tiles / 'arms' / args.arm}")

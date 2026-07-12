@@ -44,9 +44,11 @@ def test_select_sources_counts_and_determinism():
 
 
 def test_select_sources_skips_absent_class():
+    import pytest
     index = {0: [("a", [0.5, 0.5, 0.1, 0.1])]}       # class 1 has no pool
-    out = select_sources({"0": 2, "1": 5}, index, seed=1)
-    assert per_class_counts(out) == {0: 2}           # class 1 skipped (no source)
+    with pytest.warns(UserWarning, match="no single-sign source"):
+        out = select_sources({"0": 2, "1": 5}, index, seed=1)
+    assert per_class_counts(out) == {0: 2}           # class 1 skipped (no source) + warned
 
 
 def test_assign_placements_within_bounds_and_deterministic():
