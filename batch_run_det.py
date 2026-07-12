@@ -84,7 +84,7 @@ def main() -> None:
             status["runs"][rid].update({"status": "done", "finished_at": _now(),
                                         "ap_small_macro": hl.get("ap_small_macro"),
                                         "ap_tail": hl.get("ap_tail"),
-                                        "converged": rep.get("meta", {}).get("converged")})
+                                        "loss_smoke_ok": rep.get("meta", {}).get("loss_smoke_ok")})
         else:
             status["runs"][rid].update({"status": "failed", "finished_at": _now(),
                                         "returncode": proc.returncode})

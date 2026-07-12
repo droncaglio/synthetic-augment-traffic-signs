@@ -175,16 +175,18 @@ def main() -> None:
         dets = predict_dets_by_panorama(weights, tiles_dir, args.eval_split,
                                         conf=0.001, nms_iou=0.5, panorama_size=2048)
         result = evaluate_split(records, splits[args.eval_split], subset, dets, panorama_size=2048)
-        # val-free convergence check (train-loss plateau) — flags subtraining per run
-        converged, loss_info = loss_plateaued(weights.parent.parent / "results.csv")
-        if not converged and not args.smoke:
-            print(f"[warn] loss não platô p/ {args.arm} ({loss_info}) — possível subtreino; "
-                  f"considere subir --base-epochs.")
+        # coarse gross-undertraining smoke alarm (train-loss steep-descent). NOT the
+        # convergence criterion — base_epochs is justified by the val-on probe. Only
+        # warns if a run is clearly cut to the early fast-learning phase (bug/mis-budget).
+        loss_ok, loss_info = loss_plateaued(weights.parent.parent / "results.csv")
+        if loss_ok is False and not args.smoke:
+            print(f"[warn] train loss ainda em descida acentuada p/ {args.arm} ({loss_info}) "
+                  f"— run possivelmente cortado na fase íngreme; verificar budget/épocas.")
         result["meta"] = {"arm": args.arm, "seed": args.seed, "K": args.K,
                           "eval_split": args.eval_split, "epochs": plan["epochs"],
                           "steps": plan["realized_steps"], "deviation": plan["deviation"],
                           "within_tol": plan["within_tol"], "n_train_tiles": n_arm,
-                          "converged": converged, "loss_check": loss_info}
+                          "loss_smoke_ok": loss_ok, "loss_check": loss_info}
 
         out = weights.parent.parent / "ap_report.json"  # alongside the trained weights
         out.write_text(nan_safe_dumps(result))

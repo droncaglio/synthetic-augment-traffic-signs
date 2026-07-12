@@ -41,12 +41,18 @@ def resolve_arm_train_dirs(arm: str, tiles_dir: str | Path) -> list[Path]:
 
 
 def loss_plateaued(results_csv: str | Path, last_k: int = 5,
-                   rel_drop_tol: float = 0.02) -> tuple[bool, dict]:
-    """Val-free convergence check from Ultralytics results.csv (train loss).
+                   rel_drop_tol: float = 0.30) -> tuple[bool, dict]:
+    """Coarse gross-undertraining smoke alarm from Ultralytics results.csv (train loss).
 
-    Returns (plateaued, info). plateaued=True if the total train loss dropped by less
-    than rel_drop_tol (relative) over the last `last_k` epochs — i.e. training flattened
-    within the fixed budget. Lets every grid run self-report convergence without val.
+    Returns (ok, info). ok=False only if the total train loss is STILL in a steep
+    descent — dropping more than rel_drop_tol (relative) over the last `last_k` epochs,
+    i.e. the run is clearly in the early fast-learning phase (a crashed/mis-budgeted run).
+
+    This is NOT the convergence criterion: train loss (dfl-dominated) keeps dropping long
+    after VAL mAP plateaus, so a tight threshold cries wolf. The real base_epochs
+    justification is the val-on convergence probe (val mAP flat from ~epoch 10 to 25).
+    tol=0.30 was calibrated on that probe: converged runs drop ~12–23%/5ep (pass), a
+    run cut to the steep phase (~epoch 5) drops ~68% (fails).
     """
     import csv
     with open(results_csv, newline="") as fh:
