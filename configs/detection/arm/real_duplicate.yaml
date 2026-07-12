@@ -1,5 +1,5 @@
 # Real-duplicate: repeat real train crop, same box + position. Zero-point of context.
 # Common runtime aug + offline synthetic (generator fills the allocation budget).
 name: real_duplicate
-runtime_aug: {fliplr: 0.5, flipud: 0.0, hsv_h: 0.015, hsv_s: 0.7, hsv_v: 0.4, mosaic: 0.0, scale: 0.5, translate: 0.1}
+runtime_aug: {fliplr: 0.0, flipud: 0.0, hsv_h: 0.015, hsv_s: 0.7, hsv_v: 0.4, mosaic: 0.0, scale: 0.5, translate: 0.1}
 synthetic: {enabled: true, generator: real_duplicate}
