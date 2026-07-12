@@ -87,6 +87,21 @@ def _zoom(img: np.ndarray, box, pad: float):
     return crop, bx
 
 
+def _arm_image(col: str, i: int, src: dict, orig, tiles: Path, rng):
+    """(img, box) for one arm+sample, or None if the tile is absent (n/a)."""
+    src_box = tuple(src["bbox"])
+    if col == "original":
+        return (orig, src_box) if orig is not None else None
+    if col == "da_only":
+        return _da_only(orig, src_box, rng) if orig is not None else None
+    name = f"syn_{col}_{i:06d}"
+    p = tiles / "arms" / col / "images" / f"{name}.jpg"
+    if not p.exists():
+        return None
+    box = _first_box(tiles / "arms" / col / "labels" / f"{name}.txt") or src_box
+    return np.asarray(Image.open(p).convert("RGB")), box
+
+
 def _cell(ax, img, box, pad, boxes):
     crop, bx = _zoom(img, box, pad)
     ax.imshow(crop, interpolation="nearest")
@@ -94,6 +109,12 @@ def _cell(ax, img, box, pad, boxes):
         ax.add_patch(Rectangle((bx[0], bx[1]), bx[2], bx[3], fill=False,
                                edgecolor="lime", linewidth=1.0))
     ax.set_xticks([]); ax.set_yticks([])
+
+
+def _save_crop(img, box, pad, path: Path) -> None:
+    """Write just the magnified crop (no axes/title) — clean asset for LaTeX composition."""
+    crop, _ = _zoom(img, box, pad)
+    Image.fromarray(crop).save(path)
 
 
 def main() -> None:
@@ -107,6 +128,11 @@ def main() -> None:
     ap.add_argument("--boxes", action="store_true", help="draw the sign bbox (default off)")
     ap.add_argument("--render-seed", type=int, default=0, help="RNG for the da_only render")
     ap.add_argument("--out", default="reports/qa/paper_ladder.png")
+    ap.add_argument("--per-sample", action="store_true",
+                    help="also write one PNG per sign (a 1xN arm row) -> <out>__<tile>.png")
+    ap.add_argument("--per-cell", action="store_true",
+                    help="also write one clean crop per arm+sign (no chrome) for LaTeX "
+                         "composition -> <out>__<tile>__<arm>.png")
     args = ap.parse_args()
 
     tiles, prepared = Path(args.tiles), Path(args.prepared)
@@ -122,44 +148,63 @@ def main() -> None:
     step = max(1, len(idxs) // args.n)
     picks = idxs[::step][:args.n]
 
-    nrows, ncols = len(picks), len(COLUMNS)
-    fig, axes = plt.subplots(nrows, ncols, figsize=(ncols * 2.0, nrows * 2.0), squeeze=False)
-    for c, col in enumerate(COLUMNS):
-        axes[0][c].set_title(COL_LABELS[col], fontsize=9)
-
-    for r, i in enumerate(picks):
-        src = sources[i]
-        src_box = tuple(src["bbox"])
-        orig_path = train_img / f"{src['source_tile']}.jpg"
-        orig = np.asarray(Image.open(orig_path).convert("RGB")) if orig_path.exists() else None
-        for c, col in enumerate(COLUMNS):
-            ax = axes[r][c]
-            ax.set_xticks([]); ax.set_yticks([])
-            if col == "original":
-                if orig is not None:
-                    _cell(ax, orig, src_box, args.zoom, args.boxes)
-            elif col == "da_only":
-                if orig is not None:
-                    img, box = _da_only(orig, src_box, rng)
-                    _cell(ax, img, box, args.zoom, args.boxes)
-            else:
-                name = f"syn_{col}_{i:06d}"
-                p = tiles / "arms" / col / "images" / f"{name}.jpg"
-                box = _first_box(tiles / "arms" / col / "labels" / f"{name}.txt") or src_box
-                if p.exists():
-                    _cell(ax, np.asarray(Image.open(p).convert("RGB")), box, args.zoom, args.boxes)
-                else:
-                    ax.text(0.5, 0.5, "n/a", ha="center", va="center", fontsize=8, color="0.6")
-        axes[r][0].set_ylabel(f"{src['source_tile']}", fontsize=6, rotation=0,
-                              ha="right", va="center", labelpad=20)
-
-    fig.suptitle("Context-novelty ladder — same real sign across arms (seed "
-                 f"{args.seed})", fontsize=11)
-    fig.tight_layout(rect=(0, 0, 1, 0.97))
     out = Path(args.out)
     out.parent.mkdir(parents=True, exist_ok=True)
+
+    def _row(axrow, i, titles: bool):
+        """Fill one axis row for source index i; returns the loaded (img, box) per arm."""
+        src = sources[i]
+        op = train_img / f"{src['source_tile']}.jpg"
+        orig = np.asarray(Image.open(op).convert("RGB")) if op.exists() else None
+        loaded = {}
+        for c, col in enumerate(COLUMNS):
+            ax = axrow[c]
+            ax.set_xticks([]); ax.set_yticks([])
+            if titles:
+                ax.set_title(COL_LABELS[col], fontsize=9)
+            res = _arm_image(col, i, src, orig, tiles, rng)
+            if res is None:
+                ax.text(0.5, 0.5, "n/a", ha="center", va="center", fontsize=8, color="0.6")
+            else:
+                _cell(ax, res[0], res[1], args.zoom, args.boxes)
+                loaded[col] = res
+        return src, loaded
+
+    # 1) combined grid (overview)
+    nrows, ncols = len(picks), len(COLUMNS)
+    fig, axes = plt.subplots(nrows, ncols, figsize=(ncols * 2.0, nrows * 2.0), squeeze=False)
+    per_sample_data = []
+    for r, i in enumerate(picks):
+        src, loaded = _row(axes[r], i, titles=(r == 0))
+        axes[r][0].set_ylabel(src["source_tile"], fontsize=6, rotation=0,
+                              ha="right", va="center", labelpad=20)
+        per_sample_data.append((i, src, loaded))
+    fig.suptitle(f"Context-novelty ladder — same real sign across arms (seed {args.seed})",
+                 fontsize=11)
+    fig.tight_layout(rect=(0, 0, 1, 0.97))
     fig.savefig(out, dpi=200)
+    plt.close(fig)
     print(f"-> {out}  ({nrows} signs x {ncols} arms)")
+
+    # 2) one PNG per sign (a 1xN arm row)
+    if args.per_sample:
+        for i in picks:
+            f1, ax1 = plt.subplots(1, ncols, figsize=(ncols * 2.0, 2.2), squeeze=False)
+            src, _ = _row(ax1[0], i, titles=True)
+            f1.tight_layout()
+            p = out.with_name(f"{out.stem}__{i:06d}_{src['source_tile']}{out.suffix}")
+            f1.savefig(p, dpi=200)
+            plt.close(f1)
+            print(f"   per-sample -> {p.name}")
+
+    # 3) one clean crop per arm+sign (no chrome) for free LaTeX composition
+    if args.per_cell:
+        for i, src, loaded in per_sample_data:
+            for col, (img, box) in loaded.items():
+                p = out.with_name(f"{out.stem}__{i:06d}_{src['source_tile']}__{col}{out.suffix}")
+                _save_crop(img, box, args.zoom, p)
+        print(f"   per-cell -> {out.stem}__<tile>__<arm>{out.suffix} "
+              f"({sum(len(l) for _, _, l in per_sample_data)} crops)")
 
 
 if __name__ == "__main__":
