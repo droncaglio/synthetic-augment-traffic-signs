@@ -57,8 +57,20 @@ def _load_status(path: Path) -> dict:
 CONTENT_ARMS = ("real_duplicate", "bg_photometric", "copy_paste", "diffusion_bg")
 
 
-def _arm_generated(tiles: str, arm: str) -> bool:
-    return (Path(tiles) / "arms" / arm / "generation_manifest.json").exists()
+def _arm_generated(tiles: str, prepared: str, arm: str, seed: int = 42) -> bool:
+    """True only if the arm's tiles are COMPLETE — the manifest's n_sources matches the
+    full shared source list. Guards against a partial lot (e.g. a --limit QA batch) whose
+    manifest would otherwise make the grid skip the real generation and train on a stub.
+    """
+    mf = Path(tiles) / "arms" / arm / "generation_manifest.json"
+    if not mf.exists():
+        return False
+    n_have = json.loads(mf.read_text()).get("n_sources", 0)
+    src = Path(prepared) / f"sources_seed{seed}.json"
+    if not src.exists():
+        return n_have > 0  # can't tell the full size -> accept any non-empty manifest
+    n_full = len(json.loads(src.read_text()))
+    return n_have >= n_full
 
 
 def _default_scanner(project: str, bm: str) -> str | None:
@@ -151,7 +163,7 @@ def main() -> None:
 
         # ENIAC-style: ensure the arm's synthetic tiles exist before its first run.
         if (not args.skip_generate and arm in CONTENT_ARMS and arm not in ensured
-                and not _arm_generated(args.tiles, arm)):
+                and not _arm_generated(args.tiles, args.prepared, arm)):
             if notifier:
                 extra = " (~17h)" if arm == "diffusion_bg" else ""
                 notifier.send_message(f"🎨 <b>GENERATING</b> <code>{arm}</code>{extra} "

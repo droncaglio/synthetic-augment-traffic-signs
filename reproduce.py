@@ -249,7 +249,7 @@ def step_generate(arms: list, device: str, scan_weights: Optional[str], dry_run:
         warn("no content arms selected (baselines need no generation).")
         return True
     for arm in todo:
-        if (TILES / "arms" / arm / "generation_manifest.json").exists():
+        if _arm_complete(arm):
             ok(f"{arm}: already generated")
             continue
         cmd = ["python", f"{S}/generate_arm.py", "--arm", arm,
@@ -266,6 +266,17 @@ def step_generate(arms: list, device: str, scan_weights: Optional[str], dry_run:
             return False
     ok("content arms generated")
     return True
+
+
+def _arm_complete(arm: str, seed: int = 42) -> bool:
+    """True only if the arm's generation manifest is COMPLETE (n_sources == full source
+    list) — a partial --limit QA lot must not count as generated."""
+    mf = TILES / "arms" / arm / "generation_manifest.json"
+    if not mf.exists():
+        return False
+    n_have = json.loads(mf.read_text()).get("n_sources", 0)
+    src = PREPARED / f"sources_seed{seed}.json"
+    return n_have > 0 if not src.exists() else n_have >= len(json.loads(src.read_text()))
 
 
 def _default_scanner() -> Optional[str]:
