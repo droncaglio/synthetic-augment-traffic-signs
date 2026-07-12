@@ -1,13 +1,16 @@
 #!/usr/bin/env python
-"""Batch runner for the detection grid (arms x seeds) — resumable.
+"""Batch runner for the detection grid (arms x seeds) — resumable, ONE command.
 
-Runs run_det.py once per (arm, seed) as a subprocess, tracking status in a JSON so
-the grid can be resumed after a crash (done runs are skipped; --retry-failed re-runs
-failures). Order follows the batch config (baselines + cheap arms first, diffusion last).
+For each (arm, seed) it: (1) generates the arm's synthetic tiles once if missing
+(ENIAC-style auto-prep embedded in the batch — baselines skip this; diffusion resumes
+and uses the already-trained zero_aug seed 0 as its anti-hallucination scanner), then
+(2) runs run_det.py as a subprocess. Status is tracked in a JSON so the whole pipeline
+resumes after a crash (done runs skipped; --retry-failed re-runs failures). The config
+order (zero_aug first ... diffusion_bg last) makes the scanner available in time.
 
-Usage:
+Usage (generates all arms + trains all 42 runs in one go):
   python batch_run_det.py --batch configs/detection/batches/full_grid_det.yaml \
-      --device 0 --base-epochs 25 [--retry-failed] [--dry-run]
+      --device 0 --base-epochs 25 [--retry-failed] [--skip-generate] [--dry-run]
 """
 from __future__ import annotations
 
@@ -34,14 +37,59 @@ def _load_status(path: Path) -> dict:
     return json.loads(path.read_text()) if path.exists() else {"runs": {}}
 
 
+# content arms need their synthetic tiles generated ONCE before training (ENIAC-style
+# auto-prep embedded in the batch). Baselines (zero_aug/da_only) train on raw tiles.
+CONTENT_ARMS = ("real_duplicate", "bg_photometric", "copy_paste", "diffusion_bg")
+
+
+def _arm_generated(tiles: str, arm: str) -> bool:
+    return (Path(tiles) / "arms" / arm / "generation_manifest.json").exists()
+
+
+def _default_scanner(project: str, bm: str) -> str | None:
+    """diffusion_bg scanner = the already-trained zero_aug seed 0 (it runs first in the
+    grid, so by the time diffusion is reached its weights exist)."""
+    for w in ("last.pt", "best.pt"):
+        p = Path(project) / experiment_name("zero_aug", 0, budget_tag=bm) / "weights" / w
+        if p.exists():
+            return str(p)
+    return None
+
+
+def _generate_arm(arm: str, args, bm: str, dry: bool) -> None:
+    """Generate an arm's synthetic tiles (idempotent; diffusion resumes + needs a scanner)."""
+    cmd = [sys.executable, str(ROOT / "scripts" / "detection" / "generate_arm.py"),
+           "--arm", arm, "--tiles", args.tiles, "--prepared", args.prepared]
+    if arm == "diffusion_bg":
+        scanner = args.scan_weights or _default_scanner(args.project, bm)
+        if not scanner and not dry:  # at run time the scanner must exist (zero_aug ran first)
+            raise SystemExit("diffusion_bg generation needs a scanner — pass --scan-weights "
+                             "or ensure zero_aug seed 0 trained earlier in the grid.")
+        if dry:
+            print(f"would generate: {arm} (scanner={scanner or 'zero_aug seed0 @ runtime'})")
+            return
+        cmd += ["--scan-weights", scanner, "--resume", "--device", args.device]
+    if dry:
+        print(f"would generate: {arm}")
+        return
+    print(f"GEN: {arm}")
+    subprocess.run(cmd, check=True)
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--batch", default="configs/detection/batches/full_grid_det.yaml")
     ap.add_argument("--device", default="0")
     ap.add_argument("--base-epochs", type=int, default=25)
     ap.add_argument("--project", default="experiments/tt100k")
+    ap.add_argument("--tiles", default="data/tt100k/tiles")
+    ap.add_argument("--prepared", default="data/tt100k/prepared")
+    ap.add_argument("--scan-weights", default=None,
+                    help="diffusion_bg scanner (default: zero_aug seed 0 weights from this grid)")
     ap.add_argument("--status-file", default="batch_status_det.json")
     ap.add_argument("--retry-failed", action="store_true")
+    ap.add_argument("--skip-generate", action="store_true",
+                    help="assume all content-arm tiles are already generated")
     ap.add_argument("--dry-run", action="store_true")
     args = ap.parse_args()
 
@@ -57,6 +105,7 @@ def main() -> None:
 
     print(f"grid: {len(runs)} runs ({len(cfg['arms'])} arms x {len(cfg['seeds'])} seeds), "
           f"K={K}, base_epochs={args.base_epochs}")
+    ensured: set = set()  # arms whose generation we've handled this invocation
     for arm, seed in runs:
         exp = experiment_name(arm, seed, budget_tag=bm)
         rid = f"{dataset}_{exp}"
@@ -66,6 +115,13 @@ def main() -> None:
         if done and not (args.retry_failed and prev.get("status") == "failed"):
             print(f"skip (done): {rid}")
             continue
+
+        # ENIAC-style: ensure the arm's synthetic tiles exist before its first run.
+        if (not args.skip_generate and arm in CONTENT_ARMS and arm not in ensured
+                and not _arm_generated(args.tiles, arm)):
+            _generate_arm(arm, args, bm, dry=args.dry_run)
+            ensured.add(arm)
+
         if args.dry_run:
             print(f"would run: {rid}")
             continue
