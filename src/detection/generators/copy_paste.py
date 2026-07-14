@@ -17,6 +17,11 @@ from detection.generators.bg_photometric import _yolo_to_px
 class CopyPaste(ArmGenerator):
     name = "copy_paste"
 
+    def _blend_alpha(self, th: int, tw: int, source: dict) -> np.ndarray:
+        """Alpha (th,tw,1) for compositing the crop. Base = rectangular feather (soft edge,
+        shared with diffusion_bg). copy_paste_mask overrides with a tight silhouette."""
+        return feather_alpha(th, tw)[..., None]
+
     def make_tile(self, source: dict, rng: random.Random):
         src_img, _labels, _ig = self.load_tile(source["source_tile"])
         h, w = src_img.shape[:2]
@@ -34,8 +39,9 @@ class CopyPaste(ArmGenerator):
         px1 = max(0, min(W - tw, int(round(cx * W - tw / 2))))
         py1 = max(0, min(H - th, int(round(cy * H - th / 2))))
         out = bg.copy()
-        # feathered alpha border to avoid hard 'glue-line' paste artifacts
-        alpha = feather_alpha(th, tw)[..., None]
+        # blend alpha (overridable): rectangular feather here; a TIGHT silhouette in
+        # copy_paste_mask (to drop the rectangular halo of alien background at the corners)
+        alpha = self._blend_alpha(th, tw, source)
         region = out[py1:py1 + th, px1:px1 + tw].astype(np.float32)
         blended = alpha * crop_r.astype(np.float32) + (1 - alpha) * region
         out[py1:py1 + th, px1:px1 + tw] = blended.astype(np.uint8)

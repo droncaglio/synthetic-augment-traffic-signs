@@ -54,7 +54,7 @@ def _load_status(path: Path) -> dict:
 
 # content arms need their synthetic tiles generated ONCE before training (ENIAC-style
 # auto-prep embedded in the batch). Baselines (zero_aug/da_only) train on raw tiles.
-CONTENT_ARMS = ("real_duplicate", "bg_photometric", "copy_paste", "diffusion_bg")
+CONTENT_ARMS = ("real_duplicate", "bg_photometric", "copy_paste", "copy_paste_mask", "diffusion_bg")
 
 
 def _arm_generated(tiles: str, prepared: str, arm: str, seed: int = 42) -> bool:

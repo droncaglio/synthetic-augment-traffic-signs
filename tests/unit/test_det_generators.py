@@ -7,6 +7,8 @@ from PIL import Image
 from detection.generators.real_duplicate import RealDuplicate
 from detection.generators.bg_photometric import BgPhotometric
 from detection.generators.copy_paste import CopyPaste
+from detection.generators.copy_paste_mask import CopyPasteMask
+from detection.generators.masks import sign_shape, shape_alpha
 
 
 def _fake_train(tmp_path):
@@ -113,3 +115,49 @@ def test_copy_paste_none_on_empty_crop(tmp_path):
              "recipient_tile": "bg", "place": [0.5, 0.5, 0.05, 0.05]}
     assert gen.make_tile(entry, random.Random(1)) is None
 
+
+
+def test_sign_shape_taxonomy():
+    assert sign_shape("w57") == "triangle"      # advertência
+    assert sign_shape("il60") == "circle"       # velocidade mínima (il antes de i)
+    assert sign_shape("i5") == "rectangle"      # indicação retangular
+    assert sign_shape("pl60") == "circle"
+    assert sign_shape("pn") == "circle"
+
+
+def test_shape_alpha_circle_and_triangle_drop_corners():
+    a = shape_alpha(40, 40, "circle")
+    assert a[0, 0] == 0.0 and a[-1, -1] == 0.0          # cantos fora do círculo
+    assert a[20, 20] == 1.0                             # centro dentro
+    assert shape_alpha(40, 40, "rectangle").sum() > a.sum()   # círculo mais justo que retângulo
+    t = shape_alpha(40, 40, "triangle")
+    assert t[2, 2] == 0.0                               # topo-esquerda fora do triângulo (ápice p/ cima)
+    assert t[-3, 20] == 1.0                             # base (embaixo) dentro
+
+
+def test_copy_paste_mask_removes_rectangular_halo(tmp_path):
+    timg = tmp_path / "train" / "images"
+    tlbl = tmp_path / "train" / "labels"
+    timg.mkdir(parents=True)
+    tlbl.mkdir(parents=True)
+    src = np.full((640, 640, 3), 50, np.uint8)
+    src[280:360, 280:360] = 222                          # crop = placa clara (bbox inteira)
+    Image.fromarray(src).save(timg / "src.jpg")
+    (tlbl / "src.txt").write_text("7 0.5 0.5 0.125 0.125")
+    Image.fromarray(np.full((640, 640, 3), 10, np.uint8)).save(timg / "bg.jpg")
+    (tlbl / "bg.txt").write_text("")
+
+    gen = CopyPasteMask(tmp_path, seed=5)
+    gen._id2name = {7: "w57"}                            # injeta: classe 7 = triângulo
+    entry = {"class_id": 7, "source_tile": "src", "bbox": [0.5, 0.5, 0.125, 0.125],
+             "recipient_tile": "bg", "place": [0.5, 0.5, 0.125, 0.125]}
+    img, labels = gen.make_tile(entry, random.Random(5))
+    assert len(labels) == 1 and labels[0].startswith("7 ")
+    tw = th = int(round(0.125 * 640))                    # 80
+    px1 = int(round(0.5 * 640 - tw / 2)); py1 = int(round(0.5 * 640 - th / 2))
+    # canto superior (fora do triângulo) = FUNDO (10), não a placa (222) -> halo removido
+    assert img[py1 + 3, px1 + 3].max() < 60
+    # centro = placa presente
+    assert img[py1 + th // 2, px1 + tw // 2].max() > 150
+    # base do triângulo (embaixo) = placa
+    assert img[py1 + th - 4, px1 + tw // 2].max() > 150

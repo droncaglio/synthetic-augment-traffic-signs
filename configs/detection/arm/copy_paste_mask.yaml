@@ -1,0 +1,11 @@
+# Copy-Paste-Mask: como o copy_paste, mas cola a placa por uma SILHUETA justa (círculo/
+# triângulo/retângulo inscrito na bbox) — sem o halo retangular de fundo alheio nos cantos.
+name: copy_paste_mask
+runtime_aug: {fliplr: 0.0, flipud: 0.0, hsv_h: 0.015, hsv_s: 0.7, hsv_v: 0.4, mosaic: 0.0, scale: 0.5, translate: 0.1}
+synthetic:
+  enabled: true
+  generator: copy_paste_mask
+  scale_jitter: 0.2       # +-20% resize (igual ao copy_paste, p/ comparação justa)
+  feather_px: 2           # rampa interna da silhueta (anti-serrilhado)
+  max_paste_per_image: 3
+  max_overlap_iou: 0.3

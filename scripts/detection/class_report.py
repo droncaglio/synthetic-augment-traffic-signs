@@ -17,7 +17,7 @@ sys.path.insert(0, str(REPO / "src"))
 from detection.budget import budget_tag           # noqa: E402
 from detection.report import load_runs             # noqa: E402
 
-ARMS = ["zero_aug", "da_only", "real_duplicate", "bg_photometric", "copy_paste", "diffusion_bg"]
+ARMS = ["zero_aug", "da_only", "real_duplicate", "bg_photometric", "copy_paste", "copy_paste_mask", "diffusion_bg"]
 
 
 def main():
