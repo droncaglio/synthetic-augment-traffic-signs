@@ -66,7 +66,7 @@ sys.path.insert(0, str(PROJECT_ROOT / "src"))
 from detection.notifications.telegram import LogCapture, TelegramNotifier, load_env  # noqa: E402
 
 CONDA_ENV = "augment-traffic-signs"
-VALID_STEPS = ["check", "download", "prepare", "generate", "train", "report", "all"]
+VALID_STEPS = ["check", "download", "prepare", "build_masks", "generate", "train", "report", "all"]
 ALL_ARMS = ["zero_aug", "da_only", "real_duplicate", "bg_photometric", "copy_paste", "diffusion_bg"]
 CONTENT_ARMS = ["real_duplicate", "bg_photometric", "copy_paste", "diffusion_bg"]
 BATCH_YAML = PROJECT_ROOT / "configs" / "detection" / "batches" / "full_grid_det.yaml"
@@ -241,6 +241,20 @@ def step_prepare(force: bool, dry_run: bool) -> bool:
 
 
 # ─── generate (explicit content-arm materialization) ──────────────────────────
+def step_build_masks(device: str, dry_run: bool) -> bool:
+    """Precompute SAM sign masks (opt-in; only the mask arms need them). Idempotent/resumível."""
+    section("BUILD_MASKS — SAM sign masks (for copy_paste_mask & future mask arms)")
+    cmd = ["python", "scripts/detection/precompute_sam_masks.py",
+           "--tiles", str(TILES), "--out", str(TILES.parent / "masks"), "--resume"]
+    if device:
+        cmd += ["--device", device]
+    if run_cmd(cmd, dry_run=dry_run) != 0:
+        fail("SAM mask precompute failed")
+        return False
+    ok("SAM masks precomputed")
+    return True
+
+
 def step_generate(arms: list, device: str, scan_weights: Optional[str], dry_run: bool) -> bool:
     section("GENERATE — content-arm synthetic tiles")
     S = "scripts/detection"
@@ -435,6 +449,13 @@ def main() -> int:
         if step in ("prepare", "all"):
             _, abort = _run_step(notifier, "prepare",
                                  lambda: step_prepare(args.force, args.dry_run), True, args.dry_run)
+            if abort:
+                return 1
+
+        if step == "build_masks":  # explicit/opt-in — only mask arms need SAM masks
+            _, abort = _run_step(notifier, "build_masks",
+                                 lambda: step_build_masks(args.device, args.dry_run),
+                                 True, args.dry_run)
             if abort:
                 return 1
 

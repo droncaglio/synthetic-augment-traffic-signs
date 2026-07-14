@@ -24,13 +24,24 @@ def sign_shape(name: str) -> str:
     return "circle"          # p*, pl*, pn, pne, ph*, pm*, pa*, pr*, po, pcl -> circular
 
 
+def feather_mask(binmask: np.ndarray, feather_px: int = 2) -> np.ndarray:
+    """(H,W) float32 em [0,1] a partir de uma máscara binária, com feather PARA DENTRO
+    (distance transform) — borda anti-serrilhada ao longo da silhueta. Compartilhado pela
+    silhueta geométrica e pela máscara SAM (mesmo blend, comparação justa)."""
+    m = (binmask > 0).astype(np.uint8)
+    if m.max() == 0:
+        return m.astype(np.float32)
+    if feather_px and feather_px > 0:
+        d = cv2.distanceTransform(m, cv2.DIST_L2, 3)
+        return np.clip(d / float(feather_px), 0.0, 1.0).astype(np.float32)
+    return m.astype(np.float32)
+
+
 def shape_alpha(th: int, tw: int, shape: str, feather_px: int = 2) -> np.ndarray:
-    """(th,tw) float32 em [0,1]: 1 dentro da silhueta inscrita, borda suave (anti-serrilhado).
+    """(th,tw) float32 em [0,1]: 1 dentro da silhueta inscrita, borda suave.
 
     rectangle -> bbox cheia (placa retangular não tem halo). circle -> elipse inscrita
     (lida com bbox não-quadrada). triangle -> isósceles ápice-pra-cima inscrito na bbox.
-    O feather é uma rampa PARA DENTRO (distance transform) -> a borda suaviza ao longo da
-    silhueta, não num retângulo.
     """
     th, tw = int(max(1, th)), int(max(1, tw))
     m = np.zeros((th, tw), np.uint8)
@@ -44,7 +55,4 @@ def shape_alpha(th: int, tw: int, shape: str, feather_px: int = 2) -> np.ndarray
                     (max(1, tw // 2 - 1), max(1, th // 2 - 1)), 0, 0, 360, 1, -1)
     if m.max() == 0:      # degenerado (bbox minúscula) -> cai pra bbox cheia
         m[:] = 1
-    if feather_px and feather_px > 0:
-        d = cv2.distanceTransform(m, cv2.DIST_L2, 3)
-        return np.clip(d / float(feather_px), 0.0, 1.0).astype(np.float32)
-    return m.astype(np.float32)
+    return feather_mask(m, feather_px)

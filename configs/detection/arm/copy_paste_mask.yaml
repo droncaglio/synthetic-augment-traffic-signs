@@ -5,7 +5,9 @@ runtime_aug: {fliplr: 0.0, flipud: 0.0, hsv_h: 0.015, hsv_s: 0.7, hsv_v: 0.4, mo
 synthetic:
   enabled: true
   generator: copy_paste_mask
+  mask_source: sam        # sam = máscara SAM cacheada + fallback geométrico | geometric (ablação)
   scale_jitter: 0.2       # +-20% resize (igual ao copy_paste, p/ comparação justa)
   feather_px: 2           # rampa interna da silhueta (anti-serrilhado)
   max_paste_per_image: 3
   max_overlap_iou: 0.3
+# Requer o cache SAM: python scripts/detection/precompute_sam_masks.py (ou reproduce.py --step build_masks)
