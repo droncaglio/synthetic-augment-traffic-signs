@@ -13,9 +13,26 @@ globally NMS'd). Ground truth is {panorama_id: [{"class_id","box"}]}.
 from __future__ import annotations
 
 import random
-from statistics import mean, median
+from math import sqrt
+from statistics import mean, median, stdev
 
 from detection.ap_by_size import Detection, GroundTruth, compute_ap_by_size
+
+# two-sided t critical values @95% by degrees of freedom (n-1); fallback ~normal.
+_T95 = {1: 12.706, 2: 4.303, 3: 3.182, 4: 2.776, 5: 2.571, 6: 2.447,
+        7: 2.365, 8: 2.306, 9: 2.262, 10: 2.228, 11: 2.201, 12: 2.179}
+
+
+def paired_ci(deltas: list[float]) -> dict:
+    """Paired t 95% CI of per-seed deltas (INSTANT — no resampling, uses stored AP)."""
+    n = len(deltas)
+    m = mean(deltas) if deltas else float("nan")
+    if n < 2:
+        return {"mean": m, "ci_low": m, "ci_high": m, "n": n, "n_pos": sum(d > 0 for d in deltas)}
+    se = stdev(deltas) / sqrt(n)
+    t = _T95.get(n - 1, 1.96)
+    return {"mean": m, "ci_low": m - t * se, "ci_high": m + t * se,
+            "n": n, "n_pos": sum(d > 0 for d in deltas)}
 
 
 def ap_small_overall(ap_result: dict) -> float:
@@ -118,3 +135,50 @@ def bootstrap_delta_ap(baseline_runs: list[dict], treatment_runs: list[dict],
 def ci_excludes_zero(boot: dict) -> bool:
     """True if the 95% CI does not contain 0 (guardrail to declare a difference)."""
     return boot["ci_low"] > 0 or boot["ci_high"] < 0
+
+
+def _ap_on_sample(run: dict, gts_by_pid: dict, class_names: list[str], sampled_pids: list) -> dict:
+    """compute_ap_by_size once for a (resampled) panorama list — the expensive step."""
+    dets: list[Detection] = []
+    gts: list[GroundTruth] = []
+    for new_id, pid in enumerate(sampled_pids):
+        for d in run.get(pid, []):
+            cx, cy, w, h = d["box"]
+            dets.append(Detection(new_id, d["class_id"], d["conf"], cx, cy, w, h))
+        for g in gts_by_pid.get(pid, []):
+            cx, cy, w, h = g["box"]
+            gts.append(GroundTruth(new_id, g["class_id"], cx, cy, w, h))
+    return compute_ap_by_size(dets, gts, class_names)
+
+
+def bootstrap_delta_ap_multi(baseline_runs: list[dict], treatment_runs: list[dict],
+                             gts_by_pid: dict, class_names: list[str], panorama_ids: list,
+                             metrics: dict, n_boot: int = 1000, seed: int = 0,
+                             on_progress=None) -> dict:
+    """Paired bootstrap CI for SEVERAL metrics at once. compute_ap_by_size runs ONCE per
+    (run, resample) and every metric is derived from that single AP result — ~Nx cheaper
+    than calling bootstrap_delta_ap once per metric. `metrics` = {name: fn(ap_result)->float}.
+    on_progress(done, total) is called ~every 10% for a live progress line.
+    """
+    rng = random.Random(seed)
+    n = len(panorama_ids)
+    replicas: dict = {name: [] for name in metrics}
+    step = max(1, n_boot // 10)
+    for it in range(n_boot):
+        sample = [panorama_ids[rng.randrange(n)] for _ in range(n)]
+        per_seed = {name: [] for name in metrics}
+        for base, treat in zip(baseline_runs, treatment_runs):
+            ap_b = _ap_on_sample(base, gts_by_pid, class_names, sample)
+            ap_t = _ap_on_sample(treat, gts_by_pid, class_names, sample)
+            for name, fn in metrics.items():
+                per_seed[name].append(fn(ap_t) - fn(ap_b))
+        for name in metrics:
+            replicas[name].append(mean(per_seed[name]) if per_seed[name] else float("nan"))
+        if on_progress and (it + 1) % step == 0:
+            on_progress(it + 1, n_boot)
+    out = {}
+    for name, reps in replicas.items():
+        reps.sort()
+        out[name] = {"mean": mean(reps), "ci_low": _percentile(reps, 2.5),
+                     "ci_high": _percentile(reps, 97.5), "n_boot": n_boot}
+    return out
