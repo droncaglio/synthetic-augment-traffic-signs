@@ -23,9 +23,18 @@ from detection.report import gts_by_pid, load_runs, aggregate_arm  # noqa: E402
 from detection.stats import bootstrap_delta_ap, make_macro_metric, ci_excludes_zero  # noqa: E402
 
 ARMS = ["zero_aug", "da_only", "real_duplicate", "bg_photometric", "copy_paste", "diffusion_bg"]
-# primary contrasts (treatment vs reference) — headline of the paper
-CONTRASTS = [("diffusion_bg", "copy_paste"), ("diffusion_bg", "bg_photometric"),
-             ("copy_paste", "real_duplicate"), ("bg_photometric", "real_duplicate")]
+# contrasts (treatment vs reference). Order = the cost ladder + the two baseline steps.
+# The headline is da_only vs zero_aug (does augmenting help at all) and the ladder rungs
+# vs real_duplicate (does context novelty/sophistication add anything over novelty-zero).
+CONTRASTS = [
+    ("da_only", "zero_aug"),               # augmentation vs none (expected big)
+    ("real_duplicate", "da_only"),         # allocation+dup vs runtime aug only
+    ("bg_photometric", "real_duplicate"),  # photometric context novelty vs novelty-zero
+    ("copy_paste", "real_duplicate"),      # real relocated context vs novelty-zero
+    ("diffusion_bg", "real_duplicate"),    # synthetic context vs novelty-zero (key)
+    ("diffusion_bg", "copy_paste"),        # synthetic vs cheap real context
+    ("diffusion_bg", "bg_photometric"),    # synthetic vs cheap photometric context
+]
 
 
 def main() -> None:
@@ -54,8 +63,19 @@ def main() -> None:
     # per-arm aggregate + collect runs (keyed by seed)
     runs_by_arm, agg = {}, {}
     for arm in ARMS:
-        runs = load_runs(args.project, arm, args.seeds, bm)  # {seed: (hl, dets)}
+        runs = load_runs(args.project, arm, args.seeds, bm, eval_split=args.eval_split)
         runs_by_arm[arm] = runs
+        # loud guard: dets must live on the SAME split we are evaluating. A disjoint
+        # pid set (e.g. a val-evaluated dets.json vs a test eval) silently zeroes every
+        # paired bootstrap — fail visibly instead.
+        if runs:
+            any_dets = next(iter(runs.values()))[1]
+            overlap = len(set(any_dets) & set(pids))
+            if overlap == 0:
+                print(f"[WARN] arm '{arm}': dets panoramas do not overlap the "
+                      f"'{args.eval_split}' split ({len(any_dets)} det pids, 0 overlap). "
+                      f"Run the eval-only pass on --eval-split {args.eval_split} first "
+                      f"(scripts/detection/eval_runs.py); bootstrap CIs will be 0 otherwise.")
         a = aggregate_arm(runs.values())
         if a:
             agg[arm] = a

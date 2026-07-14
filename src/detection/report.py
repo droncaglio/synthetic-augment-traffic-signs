@@ -32,17 +32,28 @@ def gts_by_pid(records: dict, split_ids: list, subset_ids: dict, size: int = 204
     return out
 
 
-def load_runs(project: str | Path, arm: str, seeds, bm: str) -> dict:
+def load_runs(project: str | Path, arm: str, seeds, bm: str,
+              eval_split: str | None = None) -> dict:
     """{seed: (headline, dets_by_pid)} for an arm; skips seeds without ap_report+dets.
 
     Keyed by seed (not a bare list) so contrasts pair on the INTERSECTION of present
     seeds — a partial/resumed grid with different missing seeds per arm must not
     misalign the paired bootstrap.
+
+    If `eval_split` is given, prefer the split-specific artifacts
+    (`ap_report_<split>.json` / `dets_<split>.json`, written by the eval-only pass)
+    and fall back to the split-agnostic names for back-compat. This prevents mixing a
+    val-evaluated dets.json with a test evaluation (which yields disjoint panorama ids
+    → a silently zero paired bootstrap).
     """
     runs = {}
     for s in seeds:
         d = Path(project) / experiment_name(arm, s, budget_tag=bm)
         rep, dets = d / "ap_report.json", d / "dets.json"
+        if eval_split:
+            rep_s, dets_s = d / f"ap_report_{eval_split}.json", d / f"dets_{eval_split}.json"
+            if rep_s.exists() and dets_s.exists():
+                rep, dets = rep_s, dets_s
         if rep.exists() and dets.exists():
             hl = json.loads(rep.read_text()).get("headline", {})
             dj = {pid: [{"class_id": x["class_id"], "conf": x["conf"], "box": tuple(x["box"])}

@@ -26,6 +26,12 @@ analysis/**/*.png
 # QA visual dos sintéticos — não vazar método antes da submissão (repo público)
 reports/qa/
 
+# Planejamento/orientação PRIVADOS — nunca em repo público (só os .bib ficam)
+refs/*.pdf
+
+# Status efêmero do grid
+batch_status*.json
+
 # Logs
 *.log
 
