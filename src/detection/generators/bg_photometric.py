@@ -36,15 +36,20 @@ def perturb_background(img: np.ndarray, rng: random.Random) -> np.ndarray:
 class BgPhotometric(ArmGenerator):
     name = "bg_photometric"
 
-    def make_tile(self, source: dict, rng: random.Random):
-        img, labels, _ignores = self.load_tile(source["source_tile"])
-        h, w = img.shape[:2]
-        # preserve every subset sign in the tile (not just the target instance)
+    def _preserve_mask(self, labels, h: int, w: int, source: dict) -> np.ndarray:
+        """Boolean (h,w): pixels a manter pixel-exato (as placas). Base = união dos RETÂNGULOS
+        de bbox. bg_photometric_mask sobrescreve com a SILHUETA justa (SAM/geométrica)."""
         sign = np.zeros((h, w), dtype=bool)
         for ln in labels:
             p = ln.split()
             x1, y1, x2, y2 = _yolo_to_px([float(v) for v in p[1:5]], w, h)
             sign[y1:y2, x1:x2] = True
+        return sign
+
+    def make_tile(self, source: dict, rng: random.Random):
+        img, labels, _ignores = self.load_tile(source["source_tile"])
+        h, w = img.shape[:2]
+        sign = self._preserve_mask(labels, h, w, source)       # placas a preservar
         out = perturb_background(img, rng)
         out[sign] = img[sign]                                  # signs pixel-exact
         return out, labels

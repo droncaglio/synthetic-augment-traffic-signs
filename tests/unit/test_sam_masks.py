@@ -8,6 +8,7 @@ from PIL import Image
 
 from detection.generators.sam_masks import filter_mask, load_cached_mask, mask_path
 from detection.generators.copy_paste_mask import CopyPasteMask
+from detection.generators.bg_photometric_mask import BgPhotometricMask
 
 
 # ---- filter_mask (sign-tuned thresholds) ------------------------------------
@@ -92,3 +93,29 @@ def test_copy_paste_mask_falls_back_to_geometric_without_cache(tmp_path):
     # triângulo ápice-pra-cima: canto superior = fundo; base = placa
     assert img[py1 + 3, px1 + 3].max() < 60
     assert img[py1 + th - 4, px1 + tw // 2].max() > 150
+
+
+# ---- bg_photometric_mask: preserva silhueta, perturba canto da bbox --------
+_SIGN = np.array([222, 222, 222], np.uint8)
+
+
+def test_bg_photometric_mask_perturbs_bbox_corner_outside_sam_silhouette(tmp_path):
+    band = np.zeros((80, 80), np.uint8); band[30:50, :] = 255      # silhueta = faixa do meio
+    tiles = _scene(tmp_path, sam_mask=band)                         # sinal em bbox px [280:360]
+    gen = BgPhotometricMask(tiles, seed=3, mask_source="sam")
+    img, _ = gen.make_tile({"class_id": 7, "source_tile": "src",
+                            "bbox": [0.5, 0.5, 0.125, 0.125]}, random.Random(3))
+    # band em tile rows [310:330]: dentro da silhueta -> preservado pixel-exato
+    assert np.all(img[314:317, 299:302] == _SIGN)
+    # canto DENTRO da bbox mas FORA da silhueta -> perturbado (bg_photometric o preservaria)
+    assert not np.all(img[281:284, 299:302] == _SIGN)
+
+
+def test_bg_photometric_mask_fallback_geometric_without_cache(tmp_path):
+    tiles = _scene(tmp_path, sam_mask=None)                         # sem cache -> triângulo (w57)
+    gen = BgPhotometricMask(tiles, seed=3, mask_source="sam")
+    img, _ = gen.make_tile({"class_id": 7, "source_tile": "src",
+                            "bbox": [0.5, 0.5, 0.125, 0.125]}, random.Random(3))
+    # triângulo ápice-pra-cima: base (embaixo) preservada; canto superior perturbado
+    assert np.all(img[356:359, 318:322] == _SIGN)
+    assert not np.all(img[281:284, 281:284] == _SIGN)

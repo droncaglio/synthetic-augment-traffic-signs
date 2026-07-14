@@ -1,0 +1,9 @@
+# Bg-Photometric-Mask: como o bg_photometric, mas preserva a placa pela SILHUETA justa
+# (SAM+fallback) em vez do retângulo da bbox -> perturba também os cantos ao redor da placa.
+name: bg_photometric_mask
+runtime_aug: {fliplr: 0.0, flipud: 0.0, hsv_h: 0.015, hsv_s: 0.7, hsv_v: 0.4, mosaic: 0.0, scale: 0.5, translate: 0.1}
+synthetic:
+  enabled: true
+  generator: bg_photometric_mask
+  mask_source: sam        # sam = silhueta SAM cacheada + fallback geométrico | geometric (ablação)
+# Requer o cache SAM: python scripts/detection/precompute_sam_masks.py (ou reproduce.py --step build_masks)

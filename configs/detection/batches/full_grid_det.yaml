@@ -1,10 +1,11 @@
-# Main experiment grid: 7 arms x 7 seeds = 49 runs. K=0.5 fixed.
-# (braço extra copy_paste_mask após os 42 originais; resumível, não retreina o que existe)
+# Main experiment grid: 8 arms x 7 seeds = 56 runs. K=0.5 fixed.
+# (braços-máscara bg_photometric_mask/copy_paste_mask após os 42 originais; resumível,
+#  não retreina o que existe; exigem o cache SAM -> reproduce.py --step build_masks)
 # batch_run_det.py expands (arm x seed) -> run entries, writes batch_status_det.json.
 name: full_grid_det
 dataset: tt100k
 K: 0.5
 seeds: [0, 1, 2, 3, 4, 5, 6]
 # order: cheap arms first (diffusion validated in parallel), see p3-plano-experimentos
-arms: [zero_aug, da_only, real_duplicate, bg_photometric, copy_paste, copy_paste_mask, diffusion_bg]
+arms: [zero_aug, da_only, real_duplicate, bg_photometric, bg_photometric_mask, copy_paste, copy_paste_mask, diffusion_bg]
 eval: {run_on_test: false}   # test only at final report

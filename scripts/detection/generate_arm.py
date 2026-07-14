@@ -22,6 +22,7 @@ from detection.generators.manifests import (  # noqa: E402
 )
 from detection.generators.real_duplicate import RealDuplicate  # noqa: E402
 from detection.generators.bg_photometric import BgPhotometric  # noqa: E402
+from detection.generators.bg_photometric_mask import BgPhotometricMask  # noqa: E402
 from detection.generators.copy_paste import CopyPaste  # noqa: E402
 from detection.generators.copy_paste_mask import CopyPasteMask  # noqa: E402
 from detection.generators.diffusion_bg import DiffusionBg  # noqa: E402
@@ -30,6 +31,7 @@ from detection.notifications.telegram import load_env  # noqa: E402
 ARM_REGISTRY = {
     "real_duplicate": RealDuplicate,
     "bg_photometric": BgPhotometric,
+    "bg_photometric_mask": BgPhotometricMask,  # perturba fundo até a silhueta (SAM+fallback)
     "copy_paste": CopyPaste,
     "copy_paste_mask": CopyPasteMask,  # silhueta justa (sem halo retangular)
     "diffusion_bg": DiffusionBg,  # GPU/model — see --lora-dir / --scan-weights
