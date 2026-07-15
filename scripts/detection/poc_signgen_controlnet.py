@@ -60,6 +60,10 @@ def main() -> None:
         os.environ["CUDA_VISIBLE_DEVICES"] = str(args.device)  # before torch import
 
     classes = [c.strip() for c in args.classes.split(",") if c.strip()]
+    if not classes:
+        sys.exit("--classes vazio: passe ao menos uma classe (ex. --classes pl70,w58)")
+    if args.per_class <= 0:
+        sys.exit(f"--per-class deve ser > 0 (recebi {args.per_class})")
     mode = f"color-anchor(str={args.strength})" if args.color_anchor else "canny-only"
     print(f"[poc-cn] classes={classes} per_class={args.per_class} mode={mode} cn_scale={args.cn_scale}")
 

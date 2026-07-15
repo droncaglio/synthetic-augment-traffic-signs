@@ -56,6 +56,8 @@ def _fit_font(text: str, max_w: float, max_h: float) -> ImageFont.FreeTypeFont:
 def _sign_geometry(alpha: np.ndarray) -> tuple[float, float, float]:
     """(cx, cy, R) of the opaque sign region (bbox of alpha>10)."""
     ys, xs = np.where(alpha > 10)
+    if len(xs) == 0:
+        raise ValueError("template sem pixels opacos (alpha>10) — PNG corrompido/todo-transparente")
     cx, cy = (xs.min() + xs.max()) / 2.0, (ys.min() + ys.max()) / 2.0
     R = min(xs.max() - xs.min(), ys.max() - ys.min()) / 2.0
     return cx, cy, R
