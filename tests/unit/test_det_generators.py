@@ -6,6 +6,7 @@ from PIL import Image
 
 from detection.generators.real_duplicate import RealDuplicate
 from detection.generators.bg_photometric import BgPhotometric
+from detection.generators.photometric_full import PhotometricFull
 from detection.generators.copy_paste import CopyPaste
 from detection.generators.copy_paste_mask import CopyPasteMask
 from detection.generators.masks import sign_shape, shape_alpha
@@ -77,6 +78,31 @@ def test_bg_photometric_preserves_sign_perturbs_background(tmp_path):
     assert np.array_equal(img[300:340, 300:340], loaded[300:340, 300:340])
     assert not np.array_equal(img[:100, :100], loaded[:100, :100])
     assert labels == ["0 0.5 0.5 0.0625 0.0625"]
+
+
+def test_photometric_full_perturbs_whole_tile_including_sign(tmp_path):
+    # same fixture as bg_photometric, but photometric_full must perturb the SIGN too
+    # (physically faithful: fog covers the sign). Contrast with bg_photometric above.
+    timg = tmp_path / "train" / "images"
+    tlbl = tmp_path / "train" / "labels"
+    timg.mkdir(parents=True)
+    tlbl.mkdir(parents=True)
+    grad = np.tile(np.arange(640, dtype=np.uint8), (640, 1))
+    arr = np.stack([grad, grad, grad], axis=-1).copy()
+    arr[300:340, 300:340] = 200
+    Image.fromarray(arr).save(timg / "t0.jpg")
+    (tlbl / "t0.txt").write_text("0 0.5 0.5 0.0625 0.0625")
+
+    loaded = np.asarray(Image.open(timg / "t0.jpg").convert("RGB"))
+    src = {"class_id": 0, "source_tile": "t0", "bbox": [0.5, 0.5, 0.0625, 0.0625]}
+    gen = PhotometricFull(tmp_path, seed=3)
+    # preserve NOTHING -> mask is all-False
+    assert not gen._preserve_mask(["0 0.5 0.5 0.0625 0.0625"], 640, 640, src).any()
+    img, labels = gen.make_tile(src, random.Random(3))
+    # BOTH sign and background are perturbed (unlike bg_photometric, which froze the sign)
+    assert not np.array_equal(img[300:340, 300:340], loaded[300:340, 300:340])
+    assert not np.array_equal(img[:100, :100], loaded[:100, :100])
+    assert labels == ["0 0.5 0.5 0.0625 0.0625"]                # label still valid
 
 
 def test_copy_paste_relocates_sign_into_background(tmp_path):

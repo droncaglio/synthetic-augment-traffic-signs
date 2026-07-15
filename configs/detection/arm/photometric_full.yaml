@@ -1,0 +1,6 @@
+# Photometric-Full: perturb the WHOLE tile (background AND sign) with the cheap photometric/
+# weather transform. Physically faithful (fog/haze covers the sign too); the bg_photometric
+# contrast isolates the effect of perturbing the sign. Common runtime aug + offline synthetic.
+name: photometric_full
+runtime_aug: {fliplr: 0.0, flipud: 0.0, hsv_h: 0.015, hsv_s: 0.7, hsv_v: 0.4, mosaic: 0.0, scale: 0.5, translate: 0.1}
+synthetic: {enabled: true, generator: photometric_full}

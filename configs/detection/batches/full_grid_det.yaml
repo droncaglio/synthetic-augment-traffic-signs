@@ -1,11 +1,13 @@
-# Main experiment grid: 8 arms x 7 seeds = 56 runs. K=0.5 fixed.
-# (braços-máscara bg_photometric_mask/copy_paste_mask após os 42 originais; resumível,
-#  não retreina o que existe; exigem o cache SAM -> reproduce.py --step build_masks)
+# Main experiment grid: 9 arms x 7 seeds = 63 runs. K=0.5 fixed.
+# (bg_photometric_mask/copy_paste_mask e photometric_full anexados após os 42 originais;
+#  resumível, não retreina o que existe; os mask arms exigem o cache SAM ->
+#  reproduce.py --step build_masks. photometric_full é CPU, sem dependência extra.)
 # batch_run_det.py expands (arm x seed) -> run entries, writes batch_status_det.json.
 name: full_grid_det
 dataset: tt100k
 K: 0.5
 seeds: [0, 1, 2, 3, 4, 5, 6]
-# order: cheap arms first (diffusion validated in parallel), see p3-plano-experimentos
-arms: [zero_aug, da_only, real_duplicate, bg_photometric, bg_photometric_mask, copy_paste, copy_paste_mask, diffusion_bg]
+# order: cheap arms first (diffusion validated in parallel), see p3-plano-experimentos.
+# photometric_full ao fim: braço novo, entra sem retreinar os anteriores (append resumível).
+arms: [zero_aug, da_only, real_duplicate, bg_photometric, bg_photometric_mask, copy_paste, copy_paste_mask, diffusion_bg, photometric_full]
 eval: {run_on_test: false}   # test only at final report
