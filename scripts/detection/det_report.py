@@ -36,6 +36,8 @@ CONTRASTS = [
     ("diffusion_bg", "copy_paste"),        # synthetic vs cheap real context
     ("diffusion_bg", "bg_photometric"),    # synthetic vs cheap photometric context
     ("photometric_full", "bg_photometric"),  # perturbing the SIGN too vs background-only
+    ("copy_paste_mask", "copy_paste"),     # tight silhouette vs rectangular halo (recover the dip?)
+    ("bg_photometric_mask", "bg_photometric"),  # perturb bbox corners (silhouette) vs keep the rectangle
 ]
 
 
