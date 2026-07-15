@@ -25,8 +25,9 @@ for arm in "${ARMS[@]}"; do
     continue
   fi
   echo "=== PROBE (val-on): $arm ==="
+  # notifica o Telegram (start/done por braço) — probe é longo, é bom saber quando acaba.
   python run_det.py --arm "$arm" --seed 0 --val --base-epochs 25 \
-    --K 0.5 --device "$DEVICE" --project "$PROBE_PROJ" --no-notify
+    --K 0.5 --device "$DEVICE" --project "$PROBE_PROJ"
   cp "${PROBE_PROJ}/${arm}_bm050_seed0/results.csv" "$csv"
   echo "-> $csv"
 done
