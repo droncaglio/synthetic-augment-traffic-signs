@@ -38,14 +38,18 @@ def _rgba_on(bg_val: int, rgba: np.ndarray) -> np.ndarray:
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--class-name", default="pl70")
-    ap.add_argument("--n", type=int, default=8, help="how many pose/seed variants")
+    ap.add_argument("--classes", default="pl70",
+                    help="comma-separated subset classes (rows), e.g. pl70,w58,p19,il100")
+    ap.add_argument("--per-class", type=int, default=3, help="variants per class (columns)")
     ap.add_argument("--marks", default="data/tt100k/tt100k_2021/marks")
     ap.add_argument("--model-id", default="stable-diffusion-v1-5/stable-diffusion-v1-5")
     ap.add_argument("--controlnet-id", default="lllyasviel/sd-controlnet-canny")
     ap.add_argument("--steps", type=int, default=30)
     ap.add_argument("--guidance", type=float, default=7.5)
     ap.add_argument("--cn-scale", type=float, default=1.0)
+    ap.add_argument("--color-anchor", action="store_true",
+                    help="img2img from the colored template -> preserve the class palette")
+    ap.add_argument("--strength", type=float, default=0.6, help="color-anchor img2img strength")
     ap.add_argument("--prompt", default=DEFAULT_PROMPT)
     ap.add_argument("--neg-prompt", default=DEFAULT_NEG)
     ap.add_argument("--seed", type=int, default=42)
@@ -55,23 +59,28 @@ def main() -> None:
     if args.device is not None:
         os.environ["CUDA_VISIBLE_DEVICES"] = str(args.device)  # before torch import
 
-    tpl = load_template(args.class_name, args.marks)
-    print(f"[poc-cn] class={args.class_name} template={tpl.shape} n={args.n} "
-          f"steps={args.steps} cn_scale={args.cn_scale}")
+    classes = [c.strip() for c in args.classes.split(",") if c.strip()]
+    mode = f"color-anchor(str={args.strength})" if args.color_anchor else "canny-only"
+    print(f"[poc-cn] classes={classes} per_class={args.per_class} mode={mode} cn_scale={args.cn_scale}")
 
     gen = SignGenControlNet(args.model_id, args.controlnet_id, steps=args.steps,
                             guidance=args.guidance, cn_scale=args.cn_scale,
+                            color_anchor=args.color_anchor, strength=args.strength,
                             prompt=args.prompt, neg_prompt=args.neg_prompt)
     rng = random.Random(args.seed)
-    variants = gen.generate(tpl, args.n, rng)
 
     rows = []
-    for i, v in enumerate(variants):
-        rows.append([(_rgba_on(128, v["warped"]), f"pose {i}"),
-                     (v["control"], "canny"),
-                     (v["image"], "gerada")])
-    sheet = contact_sheet(rows, ["template (pose)", "controle (canny)", "placa gerada"])
-    out = Path(args.out) if args.out else Path("reports/qa") / f"poc_signgen_controlnet_{args.class_name}.png"
+    for cname in classes:
+        tpl = load_template(cname, args.marks)
+        variants = gen.generate(tpl, args.per_class, rng)
+        row = [(_rgba_on(128, tpl), cname)]
+        row += [(v["image"], "gerada") for v in variants]
+        rows.append(row)
+        print(f"  {cname}: {len(variants)} amostras")
+    sheet = contact_sheet(rows, ["template"] + [f"var {i}" for i in range(args.per_class)])
+    tag = "color" if args.color_anchor else "canny"
+    default_out = f"poc_signgen_controlnet_{tag}_{'_'.join(classes)[:40]}.png"
+    out = Path(args.out) if args.out else Path("reports/qa") / default_out
     out.parent.mkdir(parents=True, exist_ok=True)
     Image.fromarray(sheet).save(out)
     print(f"-> {out}")

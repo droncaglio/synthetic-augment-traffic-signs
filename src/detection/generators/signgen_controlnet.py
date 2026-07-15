@@ -27,9 +27,15 @@ class SignGenControlNet:
     def __init__(self, model_id: str = "stable-diffusion-v1-5/stable-diffusion-v1-5",
                  controlnet_id: str = "lllyasviel/sd-controlnet-canny", *,
                  steps: int = 30, guidance: float = 7.5, cn_scale: float = 1.0,
+                 color_anchor: bool = False, strength: float = 0.6, init_bg: int = 200,
                  prompt: str = DEFAULT_PROMPT, neg_prompt: str = DEFAULT_NEG, size: int = 512):
+        # color_anchor: also seed the SIGN colors from the (colored) template via img2img, so
+        # the class's palette (red ring / white / black glyph) survives — canny alone pins only
+        # the SHAPE, letting SD invent the fill color. strength trades color-fidelity (low) for
+        # realism/context (high). init_bg = flat gray behind the sign in the init (repainted).
         self.model_id, self.controlnet_id = model_id, controlnet_id
         self.steps, self.guidance, self.cn_scale = steps, guidance, cn_scale
+        self.color_anchor, self.strength, self.init_bg = color_anchor, strength, init_bg
         self.prompt, self.neg_prompt, self.size = prompt, neg_prompt, size
         self._pipe = None
 
@@ -37,12 +43,16 @@ class SignGenControlNet:
         if self._pipe is not None:
             return self._pipe
         import torch
-        from diffusers import ControlNetModel, StableDiffusionControlNetPipeline
+        from diffusers import ControlNetModel
         cuda = torch.cuda.is_available()
         dtype = torch.float16 if cuda else torch.float32
         cn = ControlNetModel.from_pretrained(self.controlnet_id, torch_dtype=dtype)
         # safety_checker=None: NSFW filter can blank valid sign renders (false positive).
-        pipe = StableDiffusionControlNetPipeline.from_pretrained(
+        if self.color_anchor:
+            from diffusers import StableDiffusionControlNetImg2ImgPipeline as Pipe
+        else:
+            from diffusers import StableDiffusionControlNetPipeline as Pipe
+        pipe = Pipe.from_pretrained(
             self.model_id, controlnet=cn, torch_dtype=dtype, safety_checker=None)
         pipe = pipe.to("cuda" if cuda else "cpu")
         pipe.enable_attention_slicing()        # fit the 8GB 2070S
@@ -63,6 +73,11 @@ class SignGenControlNet:
         ctrl = cv2.resize(ctrl, (self.size, self.size), interpolation=cv2.INTER_NEAREST)
         return ctrl, warped
 
+    def _init_image(self, warped_rgba: np.ndarray) -> np.ndarray:
+        """Composite the (colored) warped template on flat gray -> img2img init (color anchor)."""
+        rgb, alpha = warped_rgba[..., :3], warped_rgba[..., 3]
+        return np.where((alpha > 10)[..., None], rgb, self.init_bg).astype(np.uint8)
+
     def generate(self, template_rgba: np.ndarray, n: int, rng: random.Random) -> list[dict]:
         """n variants, each a new pose+render: [{control, warped, image}]."""
         import torch
@@ -73,11 +88,17 @@ class SignGenControlNet:
         for _ in range(n):
             ctrl, warped = self.make_control(tpl, rng)
             g = torch.Generator(device="cpu").manual_seed(rng.randrange(2 ** 31))
-            img = pipe(prompt=self.prompt, negative_prompt=self.neg_prompt,
-                       image=Image.fromarray(ctrl),
-                       num_inference_steps=self.steps, guidance_scale=self.guidance,
-                       controlnet_conditioning_scale=float(self.cn_scale),
-                       height=self.size, width=self.size, generator=g).images[0]
+            common = dict(prompt=self.prompt, negative_prompt=self.neg_prompt,
+                          num_inference_steps=self.steps, guidance_scale=self.guidance,
+                          controlnet_conditioning_scale=float(self.cn_scale), generator=g)
+            if self.color_anchor:
+                # img2img: init = colored template (seeds the class palette), control = canny
+                img = pipe(image=Image.fromarray(self._init_image(warped)),
+                           control_image=Image.fromarray(ctrl),
+                           strength=float(self.strength), **common).images[0]
+            else:
+                img = pipe(image=Image.fromarray(ctrl),
+                           height=self.size, width=self.size, **common).images[0]
             out.append({"control": ctrl, "warped": warped,
                         "image": np.array(img.convert("RGB"))})
         return out
