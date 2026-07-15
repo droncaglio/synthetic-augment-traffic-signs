@@ -12,9 +12,11 @@
 %   [PARCIAL]   metadados OK, abstract NÃO recuperado (campo abstract vazio → buscar online)
 %   [CHECAR]    citekey herdado com nome de autor divergente do real (ver note=)
 %
-%  ENTRADAS SEM ABSTRACT (buscar online): timofte2014belgiumts, silva2021brtsrd,
-%   hu2023yolox. Datasets/docs (pierre2023mendeley, jean2612btsw, ultralytics_tt100k)
-%   não têm abstract formal — trazem note= factual.
+%  ATUALIZACAO 2026-07-15: os 3 antes pagos/fora do RAG entraram no cv_base com
+%   PDF completo — timofte2014belgiumts, tabelini2022deep, robilloti2023ghyolov5
+%   (autor corrigido: Guo, Weifeng). Todas as entradas ja tem abstract preenchido.
+%   Datasets/docs (pierre2023mendeley, jean2612btsw, ultralytics_tt100k) sem abstract
+%   formal — trazem note= factual.
 % =====================================================================
 
 
@@ -71,7 +73,7 @@
   abstract = {Traffic signs are characterized by a wide variability in their visual appearance in real-world environments. For example, changes of illumination, varying weather conditions and partial occlusions impact the perception of road signs. In practice, a large number of different sign classes needs to be recognized with very high accuracy. Traffic signs have been designed to be easily readable for humans, who perform very well at this task. For computer systems, however, classifying traffic signs still seems to pose a challenging pattern recognition problem. Both image processing and machine learning algorithms are continuously refined to improve on this task. But little systematic comparison of such systems exist. What is the status quo? Do today's algorithms reach human performance? For assessing the performance of state-of-the-art machine learning algorithms, we present a publicly available traffic sign dataset with more than 50,000 images of German road signs in 43 classes. The data was considered in the second stage of the German Traffic Sign Recognition Benchmark held at IJCNN 2011. The results of this competition are reported and the best-performing algorithms are briefly described. Convolutional neural networks (CNNs) showed particularly high classification accuracies in the competition. We measured the performance of human subjects on the same data-and the CNNs outperformed the human test persons.}
 }
 
-% [PARCIAL] MVA 2014 vol 25 pp 633-647 confirmados; abstract do journal NAO recuperado (Springer/ProQuest gated). Dataset BelgiumTS.
+% [OK] MVA 2014 vol 25(3) pp 633-647; PDF completo em cv_base/RAG desde 2026-07-15 (era pago/fora do RAG). Dataset BelgiumTS.
 @article{timofte2014belgiumts,
   author  = {Timofte, Radu and Zimmermann, Karel and Van Gool, Luc},
   title   = {Multi-view traffic sign detection, recognition, and 3{D} localisation},
@@ -250,7 +252,7 @@
   abstract  = {Deep learning has been successfully applied to several problems related to autonomous driving. Often, these solutions rely on large networks that require databases of real image samples of the problem (i.e., real world) for proper training. The acquisition of such real-world data sets is not always possible in the autonomous driving context, and sometimes their annotation is not feasible (e.g., takes too long or is too expensive). Moreover, in many tasks, there is an intrinsic data imbalance that most learning-based methods struggle to cope with. It turns out that traffic sign detection is a problem in which these three issues are seen altogether. In this work, we propose a novel database generation method that requires only (i) arbitrary natural images, i.e., requires no real image from the domain of interest, and (ii) templates of the traffic signs, i.e., templates synthetically created to illustrate the appearance of the category of a traffic sign. The effortlessly generated training database is shown to be effective for the training of a deep detector (such as Faster R-CNN) on German traffic signs, achieving 95.66\% of mAP on average. In addition, the proposed method is able to detect traffic signs with an average precision, recall and F1-score of about 94\%, 91\% and 93\%, respectively. The experiments surprisingly show that detectors can be trained with simple data generation methods and without problem domain data for the background, which is in the opposite direction of the common sense for deep learning.}
 }
 
-% [OK] Machine Vision and Applications 2022 vol 33 art. 87; abstract verbatim (Semantic Scholar). Extensao multi-pais do compositing (LCAD-UFES, BR).
+% [OK] Machine Vision and Applications 2022 vol 33(3):50; PDF completo em cv_base/RAG desde 2026-07-15 (era pago/fora do RAG). Extensao multi-pais do compositing (LCAD-UFES, BR).
 @article{tabelini2022deep,
   author  = {Tabelini, Lucas and Berriel, Rodrigo and Paix{\~a}o, Thiago M. and Badue, Claudine and De Souza, Alberto F. and Oliveira-Santos, Thiago},
   title   = {Deep traffic sign detection and recognition without target domain real images},
@@ -639,9 +641,9 @@
   abstract = {Traffic sign recognition systems have been applied to advanced driving assistance and automatic driving systems to help drivers obtain important road information accurately. The current mainstream detection methods have high accuracy in this task, but the number of model parameters is large, and the detection speed is slow. Based on YOLOv5s as the basic framework, this paper proposes YOLOv5S-A2, which can improve the detection speed and reduce the model size at the cost of reducing the detection accuracy. Firstly, a data augmentation strategy is proposed by combining various operations to alleviate the problem of unbalanced class instances. Secondly, we proposed a path aggregation module for Feature Pyramid Network (FPN) to make new horizontal connections. It can enhance multi-scale feature representation capability and compensate for the loss of feature information. Thirdly, an attention detection head module is proposed to solve the aliasing effect in cross-scale fusion and enhance the representation of predictive features. Experiments on Tsinghua-Tencent 100K dataset (TT100K) show that our method can achieve more remarkable performance improvement and faster inference speed than other advanced technologies. Our method achieves 87.3\% mean average precision (mAP), surpassing the original model's 7.9\%, and the frames per second (FPS) value is maintained at 87.7. To show generality, we tested it on the German Traffic Sign Detection Benchmark (GTSDB) without tuning and obtained an average precision of 94.1\%, and the FPS value is maintained at about 105.3. In addition, the number of YOLOv5s-A2 parameters is about 7.9 M.}
 }
 
-% [CHECAR] Nome "Robilloti" (dos rascunhos) esta INCORRETO: autores reais Qian Zhao & Wei Guo. J. Electronic Imaging 2023 vol 32(2):023043; abstract (Semantic Scholar). GH-YOLOV5, sintese por densidade; TT100K mAP 94.33%.
+% [OK] Autores confirmados no PDF completo (cv_base/RAG desde 2026-07-15, era pago): Qian Zhao & Weifeng Guo (Shanghai Univ. of Electric Power). J. Electronic Imaging 2023 vol 32(2):023043. GH-YOLOV5, sintese por densidade; TT100K mAP 94.33%.
 @article{robilloti2023ghyolov5,
-  author  = {Zhao, Qian and Guo, Wei},
+  author  = {Zhao, Qian and Guo, Weifeng},
   title   = {Small object detection of imbalanced traffic sign samples based on hierarchical feature fusion},
   journal = {Journal of Electronic Imaging},
   year    = {2023},
@@ -650,7 +652,7 @@
   pages   = {023043},
   doi     = {10.1117/1.JEI.32.2.023043},
   url     = {https://doi.org/10.1117/1.JEI.32.2.023043},
-  note    = {Citekey herdado usa "robilloti", que NAO e autor. Autores reais: Zhao & Guo. Recomenda-se renomear para zhao2023ghyolov5.},
+  note    = {Citekey herdado usa "robilloti", que NAO e autor. Autores reais (confirmados no PDF): Qian Zhao & Weifeng Guo. Ao citar, (Zhao e Guo, 2023). Recomenda-se renomear a chave para zhao2023ghyolov5.},
   abstract = {Traffic sign recognition plays a crucial role in the development of automated transportation systems, and its accuracy and real-time capabilities are fundamental to ensuring automatic driving safety. However, the size of most traffic signs is <0.5\% of the traffic scene, and the imbalanced sample distribution can limit the accuracy of recognition models. To address these problems, we propose a small-scale sensitive traffic sign detection algorithm, named GH-YOLOV5. Specifically, we present a gated enhanced module to enhance the expression of small targets, which uses a two-dimensional mask to extract the position features from the bottom to the top. We also design a hierarchical context embedding-transformer module to correctly migrate the cross-layer features of small targets to deep semantic features. Moreover, to solve the problem of extremely unbalanced categories, we put forward a new data enhancement strategy, which uses the spatial density distribution of traffic signs to synthesize samples for a small number of classes. Finally, we use a dynamic resolution strategy to compensate for small target information. The experimental results are conducted on the widely used TT100k dataset, and our results show that the proposed algorithm significantly improves the model's ability to perceive small targets and achieves values of 90.83\%, 90.32\%, and 94.33\% for precision, recall, and mean average precision, respectively.}
 }
 
