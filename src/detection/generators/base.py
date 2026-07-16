@@ -95,8 +95,22 @@ class ArmGenerator(ABC):
         if resume:
             self._restore_scan_stats(out_dir / "generation_manifest.json")
         rng = random.Random(self.seed)
+        # periodic Telegram progress for the LONG GPU passes (diffusion/signgen). Silent
+        # _NullNotifier if no creds; cheap arms finish before the interval and never ping.
+        import time
+        from detection.notifications.telegram import TelegramNotifier
+        notifier = TelegramNotifier.from_env()
+        t0 = _last_ping = time.time()
+        ping_every, n_src = 20 * 60, max(1, len(sources))
         n_written, realized_labels = 0, []
         for i, src in enumerate(sources):
+            if time.time() - _last_ping >= ping_every:
+                _last_ping = time.time()
+                rej = self._scan_stats.get("rejected") if getattr(self, "_scan_stats", None) else None
+                notifier.send_message(
+                    f"⏳ GEN <code>{self.name}</code>: {i}/{n_src} ({100 * i // n_src}%) · "
+                    f"{n_written} escritas" + (f" · {rej} rejeit." if rej is not None else "")
+                    + f" · {int((time.time() - t0) // 60)}min")
             name = f"syn_{self.name}_{i:06d}"
             img_path, lbl_path = out_dir / "images" / f"{name}.jpg", out_dir / "labels" / f"{name}.txt"
             if resume and img_path.exists():   # already generated -> count from disk, skip
