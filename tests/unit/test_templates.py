@@ -37,6 +37,30 @@ def test_render_parametric_draws_number_and_keeps_ring(tmp_path):
     assert red.any()
 
 
+def _fake_blue(tmp_path, size=280):
+    """A solid-blue sign with a white number (il*-like min-speed base)."""
+    import cv2
+    rgba = np.zeros((size, size, 4), np.uint8)
+    c, R = size // 2, size // 2 - 10
+    cv2.circle(rgba, (c, c), R, (40, 60, 170, 255), -1)            # solid blue, opaque
+    cv2.putText(rgba, "50", (c - 55, c + 25), cv2.FONT_HERSHEY_SIMPLEX, 2.0,
+                (255, 255, 255, 255), 6)                           # white number
+    p = tmp_path / "il50.png"
+    Image.fromarray(rgba).save(p)
+    return p
+
+
+def test_render_parametric_il_keeps_blue_bg_white_text(tmp_path):
+    # il* are solid-blue with white number — must NOT become white-disc/black (a pl-lookalike)
+    base = _fake_blue(tmp_path)
+    out = render_parametric(base, "60", size=280, fill_from_bg=True, text_color=(255, 255, 255, 255))
+    cx, cy, R = _sign_geometry(out[..., 3])
+    side = out[int(cy) - 10:int(cy) + 10, int(cx) + 45:int(cx) + 70, :3]   # fill beside the number
+    assert side[..., 2].mean() > side[..., 0].mean() + 30          # blue channel dominates (not white)
+    center = out[int(cy) - 25:int(cy) + 25, int(cx) - 45:int(cx) + 45, :3]
+    assert (center.mean(axis=2) > 200).any()                       # white glyph present
+
+
 def test_pose_warp_preserves_shape_and_gives_matrix(tmp_path):
     base = _fake_ring(tmp_path)
     tpl = np.asarray(Image.open(base).convert("RGBA"))

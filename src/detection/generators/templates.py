@@ -63,16 +63,39 @@ def _sign_geometry(alpha: np.ndarray) -> tuple[float, float, float]:
     return cx, cy, R
 
 
-def render_parametric(base_png: str | Path, text: str, size: int = 280,
-                      disc_frac: float = 0.66) -> np.ndarray:
-    """Render `text` onto a base ring icon (erase its number, draw the new one centered)."""
+def _bg_color(arr: np.ndarray, cx: float, cy: float, R: float):
+    """Median color of the solid sign region (annulus 0.55R–0.80R, opaque) — the interior
+    fill. White for pl*/ph*/pm* (white disc); BLUE for il* (solid-blue min-speed signs)."""
+    h, w = arr.shape[:2]
+    yy, xx = np.mgrid[0:h, 0:w]
+    r = np.sqrt((xx - cx) ** 2 + (yy - cy) ** 2)
+    m = (arr[..., 3] > 200) & (r > 0.55 * R) & (r < 0.80 * R)
+    if m.sum() < 10:
+        return None
+    return tuple(int(v) for v in np.median(arr[m][:, :3], axis=0))
+
+
+def render_parametric(base_png: str | Path, text: str, size: int = 280, disc_frac: float = 0.66,
+                      *, fill_from_bg: bool = False, text_color=(0, 0, 0, 255)) -> np.ndarray:
+    """Render `text` onto a base ring icon (erase its number, draw the new one centered).
+
+    Default = white disc + black text (pl*/ph*/pm*: white-background signs). `fill_from_bg`
+    samples the sign's own interior color to erase (il*: solid-blue background) and
+    `text_color` sets the glyph color (white for il*) — else a white disc + black number
+    turns a blue il-sign into a red-speed-limit look-alike (systematic mislabel)."""
     im = Image.open(base_png).convert("RGBA").resize((size, size), Image.LANCZOS)
-    cx, cy, R = _sign_geometry(np.asarray(im)[..., 3])
+    arr = np.asarray(im)
+    cx, cy, R = _sign_geometry(arr[..., 3])
+    fill = (255, 255, 255, 255)
+    if fill_from_bg:
+        bg = _bg_color(arr, cx, cy, R)
+        if bg:
+            fill = (*bg, 255)
     d = ImageDraw.Draw(im)
     rw = disc_frac * R
-    d.ellipse([cx - rw, cy - rw, cx + rw, cy + rw], fill=(255, 255, 255, 255))  # erase old number
+    d.ellipse([cx - rw, cy - rw, cx + rw, cy + rw], fill=fill)          # erase old number
     font = _fit_font(text, max_w=1.75 * rw, max_h=1.5 * rw)
-    d.text((cx, cy), text, fill=(0, 0, 0, 255), font=font, anchor="mm")
+    d.text((cx, cy), text, fill=tuple(text_color), font=font, anchor="mm")
     return np.asarray(im)
 
 
@@ -94,6 +117,9 @@ def load_template(class_name: str, marks_dir: str | Path, size: int = 280) -> np
         raise FileNotFoundError(f"base paramétrica '{base}.png' ausente em {marks_dir} "
                                 f"(necessária p/ a classe '{class_name}')")
     number = class_name[len(fam):] + FAMILY_SUFFIX.get(fam, "")
+    if fam == "il":   # solid-blue min-speed: white number on the sign's own blue (not white/black)
+        return render_parametric(base_path, number, size,
+                                 fill_from_bg=True, text_color=(255, 255, 255, 255))
     return render_parametric(base_path, number, size)
 
 
