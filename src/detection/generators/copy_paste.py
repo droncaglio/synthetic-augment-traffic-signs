@@ -14,6 +14,16 @@ from detection.generators.base import ArmGenerator, feather_alpha
 from detection.generators.bg_photometric import _yolo_to_px
 
 
+def _iou(a, b) -> float:
+    """IoU of two normalized [cx,cy,w,h] boxes."""
+    ax1, ay1, ax2, ay2 = a[0] - a[2] / 2, a[1] - a[3] / 2, a[0] + a[2] / 2, a[1] + a[3] / 2
+    bx1, by1, bx2, by2 = b[0] - b[2] / 2, b[1] - b[3] / 2, b[0] + b[2] / 2, b[1] + b[3] / 2
+    ix1, iy1, ix2, iy2 = max(ax1, bx1), max(ay1, by1), min(ax2, bx2), min(ay2, by2)
+    inter = max(0.0, ix2 - ix1) * max(0.0, iy2 - iy1)
+    ua = a[2] * a[3] + b[2] * b[3] - inter
+    return inter / ua if ua > 0 else 0.0
+
+
 class CopyPaste(ArmGenerator):
     name = "copy_paste"
 
@@ -54,6 +64,11 @@ class CopyPaste(ArmGenerator):
 
         ncx, ncy = (px1 + tw / 2) / W, (py1 + th / 2) / H
         nw, nh = tw / W, th / H
-        labels = list(bg_labels) + [
-            f"{source['class_id']} {ncx:.6f} {ncy:.6f} {nw:.6f} {nh:.6f}"]
+        # realistic placement: the recipient's OWN sign sits under our paste -> drop the labels
+        # it covers (IoU>0.3 = significant overlap -> would duplicate/conflict), keep the rest.
+        # (empty recipient -> bg_labels=[] -> no-op.) pbox is the FINAL (clamped) paste box.
+        pbox = [ncx, ncy, nw, nh]
+        kept = [ln for ln in bg_labels if len(ln.split()) >= 5
+                and _iou([float(v) for v in ln.split()[1:5]], pbox) <= 0.3]
+        labels = kept + [f"{source['class_id']} {ncx:.6f} {ncy:.6f} {nw:.6f} {nh:.6f}"]
         return out, labels

@@ -127,6 +127,37 @@ def test_copy_paste_relocates_sign_into_background(tmp_path):
     assert (img == 10).any()                            # background base present
 
 
+def test_assign_placements_realistic_uses_donor_bbox():
+    from detection.generators.manifests import assign_placements_realistic
+    sources = [{"class_id": 0, "source_tile": "s0", "bbox": [0.5, 0.5, 0.1, 0.1]}]
+    donors = [("d0", [0.3, 0.7, 0.05, 0.06]), ("d1", [0.8, 0.2, 0.04, 0.04])]
+    a = assign_placements_realistic(sources, donors, seed=1)
+    assert a == assign_placements_realistic(sources, donors, seed=1)     # deterministic (pairing)
+    e = a[0]
+    assert e["recipient_tile"] in ("d0", "d1")
+    assert e["place"] == dict(donors)[e["recipient_tile"]]               # place = donor's real bbox
+    assert e["class_id"] == 0 and e["source_tile"] == "s0"               # source preserved
+
+
+def test_copy_paste_realistic_drops_covered_recipient_label(tmp_path):
+    # realistic placement: paste over the donor's REAL sign -> its label is dropped; a far one stays
+    timg = tmp_path / "train" / "images"
+    tlbl = tmp_path / "train" / "labels"
+    timg.mkdir(parents=True)
+    tlbl.mkdir(parents=True)
+    src = np.full((640, 640, 3), 50, np.uint8)
+    src[300:340, 300:340] = 222
+    Image.fromarray(src).save(timg / "src.jpg")
+    (tlbl / "src.txt").write_text("0 0.5 0.5 0.0625 0.0625")
+    Image.fromarray(np.full((640, 640, 3), 10, np.uint8)).save(timg / "don.jpg")
+    (tlbl / "don.txt").write_text("3 0.25 0.25 0.0625 0.0625\n5 0.8 0.8 0.05 0.05")  # 2 real signs
+    gen = CopyPaste(tmp_path, seed=5)
+    entry = {"class_id": 0, "source_tile": "src", "bbox": [0.5, 0.5, 0.0625, 0.0625],
+             "recipient_tile": "don", "place": [0.25, 0.25, 0.0625, 0.0625]}   # cover the class-3
+    img, labels = gen.make_tile(entry, random.Random(5))
+    assert sorted(int(ln.split()[0]) for ln in labels) == [0, 5]        # 3 dropped, 5 kept, 0 added
+
+
 def test_copy_paste_none_on_empty_crop(tmp_path):
     timg = tmp_path / "train" / "images"
     tlbl = tmp_path / "train" / "labels"

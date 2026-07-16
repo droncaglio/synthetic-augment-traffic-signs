@@ -92,6 +92,23 @@ def assign_placements(sources: list[dict], background_tiles: list[str], seed: in
     return placements
 
 
+def assign_placements_realistic(sources: list[dict], donors: list[tuple[str, Box]], seed: int
+                                ) -> list[dict]:
+    """REALISTIC placement: paste each source sign where a REAL sign was — recipient = a real
+    single-sign tile, place = that sign's bbox (position + scale from real data), replacing it.
+
+    donors: pooled real single-sign instances [(tile_stem, [cx,cy,w,h])] (all classes). Fixes the
+    naive random placement (sign in the sky/trees) that handicaps the paste arms. Deterministic:
+    same (sources, donors, seed) -> IDENTICAL placements for every arm (copy_paste/signgen stay
+    1:1 paired). The recipient's own sign is dropped in make_tile (covered by the pasted sign)."""
+    rng = random.Random(seed)
+    placements: list[dict] = []
+    for s in sources:
+        dtile, dbox = donors[rng.randrange(len(donors))]
+        placements.append({**s, "recipient_tile": dtile, "place": list(dbox)})
+    return placements
+
+
 def per_class_counts(entries: list[dict]) -> dict[int, int]:
     """Audit: realized instances per class in a manifest."""
     ctr: dict[int, int] = defaultdict(int)

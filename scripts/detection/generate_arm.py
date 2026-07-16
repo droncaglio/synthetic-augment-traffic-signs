@@ -18,7 +18,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
 from detection.generators.manifests import (  # noqa: E402
-    index_instances_by_class, select_sources, assign_placements, save_manifest,
+    index_instances_by_class, select_sources, assign_placements,
+    assign_placements_realistic, save_manifest,
 )
 from detection.generators.real_duplicate import RealDuplicate  # noqa: E402
 from detection.generators.bg_photometric import BgPhotometric  # noqa: E402
@@ -80,14 +81,18 @@ def main() -> None:
 
     # copy_paste* relocate the sign -> need recipient background tiles + placement manifest
     # (train tiles w/o subset labels). copy_paste_mask is a CopyPaste subclass (same needs).
-    # copy_paste*/signgen relocate the sign -> need recipient background tiles + placement manifest.
-    # signgen_controlnet uses the SAME (deterministic) placements as copy_paste -> paired 1:1.
+    # copy_paste*/signgen relocate the sign -> placement manifest. REALISTIC placement: paste
+    # where a REAL sign was (recipient = a real single-sign tile, place = that sign's bbox),
+    # not a random spot in an empty tile (which put signs in the sky/trees). Deterministic ->
+    # copy_paste/signgen share IDENTICAL placements (paired 1:1). Donors = the single-sign
+    # real instances (same `index` used for source selection).
     if args.arm in ("copy_paste", "copy_paste_mask", "signgen_controlnet"):
-        bg_tiles = [t.stem for t in sorted((tiles / "train" / "labels").glob("*.txt"))
-                    if not t.read_text().strip()]
-        if not bg_tiles:
-            sys.exit(f"{args.arm}: no background (empty-label) train tiles found.")
-        entries = assign_placements(sources, bg_tiles, seed=args.seed)
+        # donors in deterministic order (index iterates sorted-glob -> stable insertion order) —
+        # load-bearing p/ o pareamento copy_paste↔signgen (mesmos donors+seed = placements iguais).
+        donors = [(stem, box) for boxes in index.values() for (stem, box) in boxes]
+        if not donors:
+            sys.exit(f"{args.arm}: no single-sign donor tiles found.")
+        entries = assign_placements_realistic(sources, donors, seed=args.seed)
         save_manifest(entries, prepared / f"placements_{args.arm}_seed{args.seed}.json")
     else:
         entries = sources
