@@ -97,6 +97,15 @@ def _generate_arm(arm: str, args, bm: str, dry: bool) -> None:
             return
         cmd += ["--scan-weights", scanner, "--resume", "--device", args.device]
     elif arm == "signgen_controlnet":
+        # self-sufficient: train the class-verifier (rejection filter) if it's missing, so the
+        # whole grid runs from ONE command unattended (like the diffusion scanner default).
+        vw = args.verifier_weights or "data/tt100k/verifier/convnext_signcls.pt"
+        if not dry and not Path(vw).exists():
+            print(f"GEN: training class-verifier (missing {vw})")
+            subprocess.run([sys.executable,
+                            str(ROOT / "scripts" / "detection" / "train_verifier.py"),
+                            "--tiles", args.tiles, "--prepared", args.prepared,
+                            "--device", args.device], check=True)
         cmd += ["--resume", "--device", args.device]
         if args.verifier_weights:
             cmd += ["--verifier-weights", args.verifier_weights]

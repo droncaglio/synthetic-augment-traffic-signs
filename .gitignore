@@ -25,6 +25,8 @@ analysis/**/*.png
 
 # QA visual dos sintéticos — não vazar método antes da submissão (repo público)
 reports/qa/
+# saída gerada do grid (regenerável; não versionar)
+reports/det/
 
 # Planejamento/orientação PRIVADOS — nunca em repo público (só os .bib ficam)
 refs/*.pdf
