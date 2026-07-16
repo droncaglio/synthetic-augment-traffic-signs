@@ -23,7 +23,7 @@ from detection.report import gts_by_pid, load_runs, aggregate_arm  # noqa: E402
 from detection.stats import (  # noqa: E402
     bootstrap_delta_ap_multi, make_macro_metric, ci_excludes_zero, paired_ci)
 
-ARMS = ["zero_aug", "da_only", "real_duplicate", "bg_photometric", "bg_photometric_mask", "photometric_full", "copy_paste", "copy_paste_mask", "diffusion_bg"]
+ARMS = ["zero_aug", "da_only", "real_duplicate", "bg_photometric", "bg_photometric_mask", "photometric_full", "copy_paste", "copy_paste_mask", "diffusion_bg", "signgen_controlnet"]
 # contrasts (treatment vs reference). Order = the cost ladder + the two baseline steps.
 # The headline is da_only vs zero_aug (does augmenting help at all) and the ladder rungs
 # vs real_duplicate (does context novelty/sophistication add anything over novelty-zero).
@@ -38,6 +38,8 @@ CONTRASTS = [
     ("photometric_full", "bg_photometric"),  # perturbing the SIGN too vs background-only
     ("copy_paste_mask", "copy_paste"),     # tight silhouette vs rectangular halo (recover the dip?)
     ("bg_photometric_mask", "bg_photometric"),  # perturb bbox corners (silhouette) vs keep the rectangle
+    ("signgen_controlnet", "copy_paste"),  # KEY: synthetic NEW sign vs real relocated (same paste)
+    ("signgen_controlnet", "real_duplicate"),   # synthetic new appearance vs novelty-zero
 ]
 
 

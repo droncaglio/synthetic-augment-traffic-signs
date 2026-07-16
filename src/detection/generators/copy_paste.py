@@ -22,19 +22,25 @@ class CopyPaste(ArmGenerator):
         shared with diffusion_bg). copy_paste_mask overrides with a tight silhouette."""
         return feather_alpha(th, tw)[..., None]
 
-    def make_tile(self, source: dict, rng: random.Random):
+    def _sign_crop(self, source: dict, tw: int, th: int, rng: random.Random):
+        """The (th,tw,3) sign to paste. Base = the REAL source crop resized. signgen_controlnet
+        overrides to GENERATE a synthetic sign of the same class (same size -> paired paste)."""
         src_img, _labels, _ig = self.load_tile(source["source_tile"])
         h, w = src_img.shape[:2]
         x1, y1, x2, y2 = _yolo_to_px(source["bbox"], w, h)
         crop = src_img[y1:y2, x1:x2]
         if crop.size == 0:
             return None
+        return np.asarray(Image.fromarray(crop).resize((tw, th)))
 
+    def make_tile(self, source: dict, rng: random.Random):
         bg, bg_labels, _ = self.load_tile(source["recipient_tile"])
         H, W = bg.shape[:2]
         cx, cy, bw, bh = source["place"]
         tw, th = max(1, int(round(bw * W))), max(1, int(round(bh * H)))
-        crop_r = np.asarray(Image.fromarray(crop).resize((tw, th)))
+        crop_r = self._sign_crop(source, tw, th, rng)
+        if crop_r is None:
+            return None
 
         px1 = max(0, min(W - tw, int(round(cx * W - tw / 2))))
         py1 = max(0, min(H - th, int(round(cy * H - th / 2))))

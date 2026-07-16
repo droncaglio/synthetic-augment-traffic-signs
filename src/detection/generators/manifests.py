@@ -73,7 +73,10 @@ def assign_placements(sources: list[dict], background_tiles: list[str], seed: in
                       scale_jitter: float = 0.2, margin: float = 0.15) -> list[dict]:
     """Copy-paste placement manifest: recipient background tile + new (cx,cy,w,h) per source.
 
-    Seeded and independent of the arm — records WHERE each source sign is relocated.
+    Seeded deterministically: IDENTICAL (recipient, place) tuples for every arm with the same
+    (sources, background_tiles, seed). This is what makes signgen_controlnet 1:1-paired with
+    copy_paste — the ONLY variable between them is the pasted crop (synthetic vs real sign).
+    The iteration order + rng sequence are load-bearing; don't reorder.
     """
     rng = random.Random(seed)
     placements: list[dict] = []

@@ -54,7 +54,7 @@ def _load_status(path: Path) -> dict:
 
 # content arms need their synthetic tiles generated ONCE before training (ENIAC-style
 # auto-prep embedded in the batch). Baselines (zero_aug/da_only) train on raw tiles.
-CONTENT_ARMS = ("real_duplicate", "bg_photometric", "bg_photometric_mask", "photometric_full", "copy_paste", "copy_paste_mask", "diffusion_bg")
+CONTENT_ARMS = ("real_duplicate", "bg_photometric", "bg_photometric_mask", "photometric_full", "copy_paste", "copy_paste_mask", "diffusion_bg", "signgen_controlnet")
 
 
 def _arm_generated(tiles: str, prepared: str, arm: str, seed: int = 42) -> bool:
@@ -96,6 +96,10 @@ def _generate_arm(arm: str, args, bm: str, dry: bool) -> None:
             print(f"would generate: {arm} (scanner={scanner or 'zero_aug seed0 @ runtime'})")
             return
         cmd += ["--scan-weights", scanner, "--resume", "--device", args.device]
+    elif arm == "signgen_controlnet":
+        cmd += ["--resume", "--device", args.device]
+        if args.verifier_weights:
+            cmd += ["--verifier-weights", args.verifier_weights]
     if dry:
         print(f"would generate: {arm}")
         return
@@ -113,6 +117,9 @@ def main() -> None:
     ap.add_argument("--prepared", default="data/tt100k/prepared")
     ap.add_argument("--scan-weights", default=None,
                     help="diffusion_bg scanner (default: zero_aug seed 0 weights from this grid)")
+    ap.add_argument("--verifier-weights", default=None,
+                    help="signgen_controlnet rejection filter (default: generate_arm's built-in "
+                         "convnext_signcls.pt; pass a detector oracle for ultra-rare classes)")
     ap.add_argument("--status-file", default="batch_status_det.json")
     ap.add_argument("--retry-failed", action="store_true")
     ap.add_argument("--skip-generate", action="store_true",

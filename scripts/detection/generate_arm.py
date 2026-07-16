@@ -27,6 +27,7 @@ from detection.generators.photometric_full import PhotometricFull  # noqa: E402
 from detection.generators.copy_paste import CopyPaste  # noqa: E402
 from detection.generators.copy_paste_mask import CopyPasteMask  # noqa: E402
 from detection.generators.diffusion_bg import DiffusionBg  # noqa: E402
+from detection.generators.signgen_arm import SignGenArm  # noqa: E402
 from detection.notifications.telegram import load_env  # noqa: E402
 
 ARM_REGISTRY = {
@@ -37,6 +38,7 @@ ARM_REGISTRY = {
     "copy_paste": CopyPaste,
     "copy_paste_mask": CopyPasteMask,  # silhueta justa (sem halo retangular)
     "diffusion_bg": DiffusionBg,  # GPU/model — see --lora-dir / --scan-weights
+    "signgen_controlnet": SignGenArm,  # GPU — placa sintética colada (pareado c/ copy_paste)
 }
 
 
@@ -53,6 +55,12 @@ def main() -> None:
                          "hallucination scan (REQUIRED for diffusion_bg unless --allow-no-scan)")
     ap.add_argument("--allow-no-scan", action="store_true",
                     help="diffusion_bg: permit running without the hallucination scan (dev only)")
+    # signgen_controlnet only (GPU):
+    ap.add_argument("--verifier-weights", default="data/tt100k/verifier/convnext_signcls.pt",
+                    help="signgen_controlnet: class-verifier weights (train_verifier.py); the "
+                         "rejection filter. On the workstation this can be a detector oracle.")
+    ap.add_argument("--marks", default="data/tt100k/tt100k_2021/marks",
+                    help="signgen_controlnet: official template icons dir (TT100K marks/)")
     ap.add_argument("--limit", type=int, default=0,
                     help="generate only the first N sources (0 = all) — for a quick visual QA")
     ap.add_argument("--resume", action="store_true",
@@ -72,7 +80,9 @@ def main() -> None:
 
     # copy_paste* relocate the sign -> need recipient background tiles + placement manifest
     # (train tiles w/o subset labels). copy_paste_mask is a CopyPaste subclass (same needs).
-    if args.arm in ("copy_paste", "copy_paste_mask"):
+    # copy_paste*/signgen relocate the sign -> need recipient background tiles + placement manifest.
+    # signgen_controlnet uses the SAME (deterministic) placements as copy_paste -> paired 1:1.
+    if args.arm in ("copy_paste", "copy_paste_mask", "signgen_controlnet"):
         bg_tiles = [t.stem for t in sorted((tiles / "train" / "labels").glob("*.txt"))
                     if not t.read_text().strip()]
         if not bg_tiles:
@@ -89,6 +99,12 @@ def main() -> None:
                      "--allow-no-scan for a dev run.")
         gen = DiffusionBg(tiles, seed=args.seed, lora_dir=args.lora_dir,
                           scan_weights=args.scan_weights)
+    elif args.arm == "signgen_controlnet":
+        if not Path(args.verifier_weights).exists():
+            sys.exit(f"signgen_controlnet requires --verifier-weights (rejection filter); "
+                     f"ausente: {args.verifier_weights} — rode train_verifier.py antes.")
+        gen = SignGenArm(tiles, seed=args.seed, verifier_weights=args.verifier_weights,
+                         marks_dir=args.marks)
     else:
         gen = ARM_REGISTRY[args.arm](tiles, seed=args.seed)
     if args.limit:
