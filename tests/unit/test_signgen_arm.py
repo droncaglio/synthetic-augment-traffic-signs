@@ -31,16 +31,18 @@ def test_sign_crop_accepts_when_verifier_agrees(tmp_path, monkeypatch):
     monkeypatch.setattr(arm.clf, "predict", lambda c: (7, 0.9, np.array([0.9])))
     out = arm._sign_crop({"class_id": 7}, 40, 40, random.Random(0))
     assert out is not None and out.shape == (40, 40, 3)
-    assert arm._scan_stats["rejected"] == 0
+    assert arm._scan_stats["passed"] == 1
 
 
-def test_sign_crop_rejects_and_regenerates_then_none(tmp_path, monkeypatch):
+def test_sign_crop_best_of_n_never_skips(tmp_path, monkeypatch):
+    # verifier never agrees -> best-of-N is kept (count must match copy_paste; NEVER None)
     arm = _arm(tmp_path, monkeypatch)
     monkeypatch.setattr(arm.clf, "predict", lambda c: (3, 0.9, np.array([0.9])))  # wrong class
     out = arm._sign_crop({"class_id": 7}, 40, 40, random.Random(0))
-    assert out is None
-    assert arm._scan_stats["rejected"] == 1
-    assert arm._scan_stats["attempts"] == arm.max_regen       # tried max_regen times
+    assert out is not None and out.shape == (40, 40, 3)       # produced anyway (fair count)
+    assert arm._scan_stats["fallback_best"] == 1
+    assert arm._scan_stats["passed"] == 0
+    assert arm._scan_stats["attempts"] == arm.max_regen       # tried max_regen candidates
 
 
 def test_sign_crop_skip_verify_trusts_construction(tmp_path, monkeypatch):
