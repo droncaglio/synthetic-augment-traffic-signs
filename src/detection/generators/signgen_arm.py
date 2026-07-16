@@ -38,6 +38,17 @@ class SignGenArm(CopyPaste):
         self.clf = SignClassifier(weights_path=verifier_weights)
         sub = json.loads((self.tiles_dir.parent / "prepared" / "subset.json").read_text())
         self._id2name = {c["id"]: c["name"] for c in sub["classes"]}
+        # classes without any official template (nem PNG direto nem base paramétrica, ex. pcl)
+        # can't be generated -> skip their sources gracefully (don't crash the whole pass).
+        self._no_template = set()
+        for nm in self._id2name.values():
+            try:
+                load_template(nm, self.marks_dir)
+            except Exception:
+                self._no_template.add(nm)
+        if self._no_template:
+            print(f"[signgen] classes SEM template (puladas, sem sintético): "
+                  f"{sorted(self._no_template)}")
         # trust-construction for classes the verifier can't judge (too few real crops -> its
         # class head is degenerate, e.g. il100 with 1 crop). Read from the verifier report.
         self.skip_verify: set[str] = set()
@@ -48,13 +59,17 @@ class SignGenArm(CopyPaste):
             self.skip_verify |= {k for k, v in (r.get("per_class_val_acc") or {}).items()
                                  if v is not None and v < 0.5}
         self._scan_stats = {"tiles": 0, "attempts": 0, "regenerated": 0, "rejected": 0,
-                            "skip_verify": sorted(self.skip_verify), "conf_thr": conf_thr}
+                            "no_template": 0, "skip_verify": sorted(self.skip_verify),
+                            "conf_thr": conf_thr}
 
     def _sign_crop(self, source: dict, tw: int, th: int, rng: random.Random):
         name = self._id2name.get(source["class_id"])
         if name is None:   # fail fast: a silent skip would break the copy_paste pairing invisibly
             raise KeyError(f"signgen_controlnet: class_id {source.get('class_id')} não está no "
                            f"subset.json ({sorted(self._id2name)}) — subset desatualizado?")
+        if name in self._no_template:   # classe sem template (ex. pcl) -> sem sintético (skip)
+            self._scan_stats["no_template"] += 1
+            return None
         tpl = load_template(name, self.marks_dir)
         target = max(tw, th)
         self._scan_stats["tiles"] += 1
