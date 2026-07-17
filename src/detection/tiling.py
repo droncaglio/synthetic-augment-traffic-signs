@@ -3,8 +3,11 @@
 Per tile we emit, for each object intersecting the tile (visible fraction vf):
   * vf <= drop_thresh                  -> DROP  (negligible sliver, nothing written)
   * subset class AND vf >= keep_thresh -> LABEL (clipped bbox, tile-local YOLO coords)
-  * everything else visible            -> IGNORE (non-subset sign, or subset sign only
-                                          partly visible): painted out + recorded in a
+  * out-of-subset AND vf >= keep_thresh -> OTHER (open-set distractor class), IF other_id is
+                                          given — labeled, NOT painted out, so the model learns
+                                          "sign-but-not-a-target"; else falls through to IGNORE.
+  * everything else visible            -> IGNORE (out-of-subset when other is off, or subset
+                                          sign only partly visible): painted out + recorded in a
                                           sidecar so evaluate.py excludes predictions there.
 
 Pure, unit-testable core (no image I/O): tile_grid, clip_visibility, classify, tile_objects.
@@ -63,21 +66,32 @@ def clip_visibility(obj_xyxy: Box, tile_xyxy: Box) -> tuple[Box | None, float]:
     return (ix1, iy1, ix2, iy2), vf
 
 
-def classify(vf: float, in_subset: bool, keep_thresh: float, drop_thresh: float) -> str:
-    """One of 'label' | 'ignore' | 'drop' for an object with visible fraction vf."""
+def classify(vf: float, in_subset: bool, keep_thresh: float, drop_thresh: float,
+             other_enabled: bool = False) -> str:
+    """One of 'label' | 'other' | 'ignore' | 'drop' for an object with visible fraction vf.
+
+    other_enabled: when True, a fully-visible OUT-OF-SUBSET sign becomes an 'other' label
+    (the open-set distractor class) instead of being painted out as 'ignore'. This teaches
+    the detector "sign-but-not-a-target -> other" so it stops assigning a target class to
+    non-target signs (the open-set false-positive confound). Default False = legacy behavior.
+    """
     if vf <= drop_thresh:
         return "drop"
-    if in_subset and vf >= keep_thresh:
-        return "label"
+    if vf >= keep_thresh:
+        return "label" if in_subset else ("other" if other_enabled else "ignore")
     return "ignore"
 
 
 def tile_objects(objects: Iterable[dict], tile_xyxy: Box, subset_ids: dict[str, int],
-                 keep_thresh: float = 0.6, drop_thresh: float = 0.2
+                 keep_thresh: float = 0.6, drop_thresh: float = 0.2,
+                 other_id: int | None = None
                  ) -> tuple[list[tuple[int, Box]], list[Box]]:
     """Return (labels, ignores) for one tile.
 
     labels: [(class_id, (cx,cy,w,h) normalized to tile)]; ignores: [tile-local xyxy px].
+    other_id: if given, fully-visible out-of-subset signs are LABELED with this class id
+    (the open-set 'other' distractor) instead of painted out. subset_ids must hold only the
+    target classes (not 'other') so the in-subset check stays correct.
     """
     tx1, ty1, tx2, ty2 = tile_xyxy
     tw, th = int(tx2 - tx1), int(ty2 - ty1)
@@ -88,11 +102,13 @@ def tile_objects(objects: Iterable[dict], tile_xyxy: Box, subset_ids: dict[str, 
         if clipped is None:
             continue
         in_sub = o["category"] in subset_ids
-        kind = classify(vf, in_sub, keep_thresh, drop_thresh)
+        kind = classify(vf, in_sub, keep_thresh, drop_thresh, other_enabled=other_id is not None)
         cx1, cy1, cx2, cy2 = clipped
         local = (cx1 - tx1, cy1 - ty1, cx2 - tx1, cy2 - ty1)
         if kind == "label":
             labels.append((subset_ids[o["category"]], xyxy_to_yolo(local, tw, th)))
+        elif kind == "other":
+            labels.append((other_id, xyxy_to_yolo(local, tw, th)))
         elif kind == "ignore":
             ignores.append(local)
     return labels, ignores
@@ -114,7 +130,8 @@ def paint_out(arr, ignore_boxes: Iterable[Box]):
 def tile_panorama(image_path: str | Path, record: dict, subset_ids: dict[str, int],
                   out_dir: str | Path, size: int = 640, overlap: int = 128,
                   keep_thresh: float = 0.6, drop_thresh: float = 0.2,
-                  mode: str = "train", neg_keep_fn=None) -> list[dict]:
+                  mode: str = "train", neg_keep_fn=None,
+                  other_id: int | None = None) -> list[dict]:
     """Crop one panorama into tiles; write images + YOLO labels + ignore sidecars.
 
     mode="train": keep a tile only if it has a subset LABEL, or it is sampled by
@@ -145,7 +162,7 @@ def tile_panorama(image_path: str | Path, record: dict, subset_ids: dict[str, in
     index: list[dict] = []
     for (tx1, ty1, tx2, ty2) in tile_grid(w, h, size, overlap):
         labels, ignores = tile_objects(record["objects"], (tx1, ty1, tx2, ty2),
-                                        subset_ids, keep_thresh, drop_thresh)
+                                        subset_ids, keep_thresh, drop_thresh, other_id)
         name = f"{pid}_{int(tx1)}_{int(ty1)}"
         if mode == "train" and not labels:
             # no subset signal -> candidate negative (incl. ignore-only tiles)

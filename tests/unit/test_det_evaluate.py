@@ -59,6 +59,29 @@ def test_evaluate_split_tail_miss_drops_ap_tail():
     assert hl["ap_tail"] == pytest.approx(0.0)
 
 
+def test_evaluate_ignores_open_set_other_class():
+    # A 22nd 'other' distractor class must NOT affect target-class AP: it has no GT (records
+    # never carry the literal 'other' category), so its detections are scored against zero GT
+    # (NaN) and dropped from the macros; target classes are matched per-class, untouched.
+    subset_o = {
+        "names": ["A", "B", "other"],
+        "classes": [{"name": "A", "id": 0, "tier": "head"},
+                    {"name": "B", "id": 1, "tier": "tail"},
+                    {"name": "other", "id": 2, "tier": "distractor"}],
+        "by_tier": {"head": ["A"], "mid": [], "tail": ["B"], "distractor": ["other"]},
+    }
+    dets = {"p0": [
+        {"class_id": 0, "conf": 0.9, "box": (0.11, 0.11, 0.02, 0.02)},    # A TP
+        {"class_id": 1, "conf": 0.8, "box": (0.51, 0.51, 0.02, 0.02)},    # B (tail) TP
+        {"class_id": 2, "conf": 0.95, "box": (0.30, 0.30, 0.02, 0.02)},   # 'other' FP, empty spot
+    ]}
+    hl = evaluate_split(RECORDS, ["p0"], subset_o, dets, panorama_size=1000)["headline"]
+    assert hl["ap_tail"] == pytest.approx(1.0)               # tail B unaffected by 'other'
+    assert hl["per_class_small"]["A"] == pytest.approx(1.0)
+    assert hl["per_class_small"]["B"] == pytest.approx(1.0)
+    assert hl["ap_small_macro"] == pytest.approx(1.0)        # 'other' (NaN, no GT) dropped
+
+
 def test_absolute_coco_buckets_actually_stratify():
     # small (<32px), medium (32-96px), large (>96px) on a 2048 panorama
     from detection.ap_by_size import compute_ap_by_size, Detection, GroundTruth

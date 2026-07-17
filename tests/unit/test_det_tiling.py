@@ -39,6 +39,14 @@ def test_classify_bands():
     assert classify(0.4, True, 0.6, 0.2) == "ignore"    # subset mid-band -> ignore
 
 
+def test_classify_other_open_set():
+    # with other enabled, a fully-visible OUT-OF-SUBSET sign becomes 'other' (not painted)
+    assert classify(0.9, False, 0.6, 0.2, other_enabled=True) == "other"
+    assert classify(0.9, True, 0.6, 0.2, other_enabled=True) == "label"   # subset unchanged
+    assert classify(0.4, False, 0.6, 0.2, other_enabled=True) == "ignore"  # mid-band still ignore
+    assert classify(0.05, False, 0.6, 0.2, other_enabled=True) == "drop"   # sliver still drop
+
+
 def test_tile_objects_label_local_coords():
     tile = (512, 512, 1152, 1152)
     objs = [{"category": "A", "xyxy": [700, 700, 740, 740]}]  # fully inside, subset
@@ -56,6 +64,21 @@ def test_tile_objects_non_subset_becomes_ignore():
     labels, ignores = tile_objects(objs, tile, {"A": 0})
     assert labels == []
     assert ignores == [(288, 288, 388, 388)]
+
+
+def test_tile_objects_other_labels_out_of_subset():
+    tile = (512, 512, 1152, 1152)
+    objs = [
+        {"category": "A", "xyxy": [700, 700, 740, 740]},  # subset -> class 0
+        {"category": "Z", "xyxy": [800, 800, 900, 900]},  # out-of-subset, vf=1 -> other (id 5)
+    ]
+    labels, ignores = tile_objects(objs, tile, {"A": 0}, other_id=5)
+    assert ignores == []                              # 'other' is LABELED, not painted
+    cids = sorted(cid for cid, _ in labels)
+    assert cids == [0, 5]                             # subset class + 'other'
+    # legacy behavior preserved when other_id is None (out-of-subset -> ignore)
+    labels2, ignores2 = tile_objects(objs, tile, {"A": 0})
+    assert [cid for cid, _ in labels2] == [0] and ignores2 == [(288, 288, 388, 388)]
 
 
 def test_tile_objects_midband_and_sliver():

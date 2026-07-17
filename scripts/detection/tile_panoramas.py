@@ -46,7 +46,11 @@ def main() -> None:
     prepared = Path(args.prepared)
     records = {r["id"]: r for r in _load_jsonl(prepared / "panoramas.jsonl")}
     subset = json.loads((prepared / "subset.json").read_text())
-    subset_ids = {c["name"]: c["id"] for c in subset["classes"]}
+    # subset_ids holds only the TARGET classes (never 'other'); the open-set distractor id
+    # (if subset.json defines an 'other' class) is passed separately so out-of-subset signs
+    # get labeled as 'other' instead of painted out.
+    subset_ids = {c["name"]: c["id"] for c in subset["classes"] if c["name"] != "other"}
+    other_id = next((c["id"] for c in subset["classes"] if c["name"] == "other"), None)
     splits = json.loads((prepared / "splits.json").read_text())
 
     out_dir = Path(args.out) / args.split
@@ -60,7 +64,7 @@ def main() -> None:
         if not img.exists():
             continue
         index += tile_panorama(img, rec, subset_ids, out_dir, args.size, args.overlap,
-                               mode=mode, neg_keep_fn=neg_fn)
+                               mode=mode, neg_keep_fn=neg_fn, other_id=other_id)
     (out_dir / "tile_index.json").write_text(json.dumps(index))
     print(f"[{args.split}] wrote {len(index)} non-empty tiles -> {out_dir}")
 
