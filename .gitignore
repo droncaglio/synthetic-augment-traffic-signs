@@ -2,7 +2,8 @@
 data/
 runs/
 outputs/
-experiments/        # per-run YOLO outputs (weights, preds, ap_report.json)
+# per-run YOLO outputs (weights, preds, ap_report.json) + rsync'd dets from the workstation
+experiments/
 *.zip
 *.pt
 *.pth
