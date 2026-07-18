@@ -84,7 +84,7 @@ def classify(vf: float, in_subset: bool, keep_thresh: float, drop_thresh: float,
 
 def tile_objects(objects: Iterable[dict], tile_xyxy: Box, subset_ids: dict[str, int],
                  keep_thresh: float = 0.6, drop_thresh: float = 0.2,
-                 other_id: int | None = None
+                 other_id: int | None = None, other_exclude: set[str] | None = None
                  ) -> tuple[list[tuple[int, Box]], list[Box]]:
     """Return (labels, ignores) for one tile.
 
@@ -92,21 +92,28 @@ def tile_objects(objects: Iterable[dict], tile_xyxy: Box, subset_ids: dict[str, 
     other_id: if given, fully-visible out-of-subset signs are LABELED with this class id
     (the open-set 'other' distractor) instead of painted out. subset_ids must hold only the
     target classes (not 'other') so the in-subset check stays correct.
+    other_exclude: out-of-subset category NAMES that must NOT become 'other' (they fall back
+    to ignore/paint-out). Use to keep fine-grained look-alikes of the target/tail classes out
+    of the distractor pool — pooling them into 'other' steals target recall (the model labels
+    a real target sign 'other'). Default None = collapse ALL out-of-subset into 'other'.
     """
     tx1, ty1, tx2, ty2 = tile_xyxy
     tw, th = int(tx2 - tx1), int(ty2 - ty1)
+    other_exclude = other_exclude or frozenset()
     labels: list[tuple[int, Box]] = []
     ignores: list[Box] = []
     for o in objects:
         clipped, vf = clip_visibility(tuple(o["xyxy"]), tile_xyxy)
         if clipped is None:
             continue
-        in_sub = o["category"] in subset_ids
-        kind = classify(vf, in_sub, keep_thresh, drop_thresh, other_enabled=other_id is not None)
+        cat = o["category"]
+        in_sub = cat in subset_ids
+        other_ok = other_id is not None and not in_sub and cat not in other_exclude
+        kind = classify(vf, in_sub, keep_thresh, drop_thresh, other_enabled=other_ok)
         cx1, cy1, cx2, cy2 = clipped
         local = (cx1 - tx1, cy1 - ty1, cx2 - tx1, cy2 - ty1)
         if kind == "label":
-            labels.append((subset_ids[o["category"]], xyxy_to_yolo(local, tw, th)))
+            labels.append((subset_ids[cat], xyxy_to_yolo(local, tw, th)))
         elif kind == "other":
             labels.append((other_id, xyxy_to_yolo(local, tw, th)))
         elif kind == "ignore":
@@ -131,7 +138,8 @@ def tile_panorama(image_path: str | Path, record: dict, subset_ids: dict[str, in
                   out_dir: str | Path, size: int = 640, overlap: int = 128,
                   keep_thresh: float = 0.6, drop_thresh: float = 0.2,
                   mode: str = "train", neg_keep_fn=None,
-                  other_id: int | None = None) -> list[dict]:
+                  other_id: int | None = None,
+                  other_exclude: set[str] | None = None) -> list[dict]:
     """Crop one panorama into tiles; write images + YOLO labels + ignore sidecars.
 
     mode="train": keep a tile only if it has a subset LABEL, or it is sampled by
@@ -162,7 +170,8 @@ def tile_panorama(image_path: str | Path, record: dict, subset_ids: dict[str, in
     index: list[dict] = []
     for (tx1, ty1, tx2, ty2) in tile_grid(w, h, size, overlap):
         labels, ignores = tile_objects(record["objects"], (tx1, ty1, tx2, ty2),
-                                        subset_ids, keep_thresh, drop_thresh, other_id)
+                                        subset_ids, keep_thresh, drop_thresh, other_id,
+                                        other_exclude)
         name = f"{pid}_{int(tx1)}_{int(ty1)}"
         if mode == "train" and not labels:
             # no subset signal -> candidate negative (incl. ignore-only tiles)

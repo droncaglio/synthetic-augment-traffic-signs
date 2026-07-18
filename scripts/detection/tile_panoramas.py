@@ -14,6 +14,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -23,6 +24,23 @@ from detection.tiling import tile_panorama  # noqa: E402
 
 def _load_jsonl(path: Path) -> list[dict]:
     return [json.loads(ln) for ln in path.read_text().splitlines() if ln.strip()]
+
+
+def _family(name: str) -> str:
+    """Leading alphabetic prefix = the sign 'family' (pl70->pl, p19->p, ph5->ph, w30->w)."""
+    m = re.match(r"[a-zA-Z]+", name)
+    return m.group() if m else name
+
+
+def tail_lookalike_cats(records: dict, subset_ids: dict, tail_names: list[str]) -> set[str]:
+    """Out-of-subset categories in the SAME family as a tail class (fine-grained look-alikes).
+
+    Pooling these into 'other' steals tail recall (a real pl70 gets labeled 'other' when
+    pl40/pl80 are 'other'); excluding them keeps the distractor pool visually distinct.
+    """
+    tail_fams = {_family(n) for n in tail_names}
+    cats = {o["category"] for r in records.values() for o in r["objects"]}
+    return {c for c in cats if c not in subset_ids and _family(c) in tail_fams}
 
 
 def _keep_negative(name: str, frac: float) -> bool:
@@ -41,6 +59,10 @@ def main() -> None:
     ap.add_argument("--size", type=int, default=640)
     ap.add_argument("--overlap", type=int, default=128)
     ap.add_argument("--neg-fraction", type=float, default=0.1)
+    ap.add_argument("--other-exclude-lookalikes", action="store_true",
+                    help="keep out-of-subset signs in the SAME family as a TAIL class (pl*, "
+                         "il*, p*, ph*, w* ...) OUT of the 'other' distractor (paint them out "
+                         "as before) — avoids stealing tail recall. Needs 'other' in subset.json.")
     args = ap.parse_args()
 
     prepared = Path(args.prepared)
@@ -51,6 +73,12 @@ def main() -> None:
     # get labeled as 'other' instead of painted out.
     subset_ids = {c["name"]: c["id"] for c in subset["classes"] if c["name"] != "other"}
     other_id = next((c["id"] for c in subset["classes"] if c["name"] == "other"), None)
+    other_exclude = None
+    if args.other_exclude_lookalikes and other_id is not None:
+        tail_names = subset.get("by_tier", {}).get("tail", [])
+        other_exclude = tail_lookalike_cats(records, subset_ids, tail_names)
+        print(f"[other] excluding {len(other_exclude)} tail-look-alike categories from 'other' "
+              f"(families {sorted({_family(n) for n in tail_names})})")
     splits = json.loads((prepared / "splits.json").read_text())
 
     out_dir = Path(args.out) / args.split
@@ -64,7 +92,8 @@ def main() -> None:
         if not img.exists():
             continue
         index += tile_panorama(img, rec, subset_ids, out_dir, args.size, args.overlap,
-                               mode=mode, neg_keep_fn=neg_fn, other_id=other_id)
+                               mode=mode, neg_keep_fn=neg_fn, other_id=other_id,
+                               other_exclude=other_exclude)
     (out_dir / "tile_index.json").write_text(json.dumps(index))
     print(f"[{args.split}] wrote {len(index)} non-empty tiles -> {out_dir}")
 

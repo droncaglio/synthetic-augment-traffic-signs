@@ -81,6 +81,17 @@ def test_tile_objects_other_labels_out_of_subset():
     assert [cid for cid, _ in labels2] == [0] and ignores2 == [(288, 288, 388, 388)]
 
 
+def test_tile_objects_other_exclude_lookalikes():
+    tile = (512, 512, 1152, 1152)
+    objs = [
+        {"category": "pl40", "xyxy": [700, 700, 740, 740]},  # tail look-alike -> excluded -> ignore
+        {"category": "i2",   "xyxy": [800, 800, 900, 900]},  # distinct family -> 'other' (id 5)
+    ]
+    labels, ignores = tile_objects(objs, tile, {"pl70": 0}, other_id=5, other_exclude={"pl40"})
+    assert [cid for cid, _ in labels] == [5]          # only i2 -> 'other'; pl40 not labeled
+    assert len(ignores) == 1                           # pl40 painted out (not distractor pool)
+
+
 def test_tile_objects_midband_and_sliver():
     tile = (0, 0, 640, 640)
     objs = [
