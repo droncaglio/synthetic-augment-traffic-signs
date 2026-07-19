@@ -3,8 +3,8 @@ data/
 runs/
 outputs/
 # per-run YOLO outputs (weights, preds, ap_report.json) + rsync'd dets from the workstation
-experiments/
-experiments_openset*/
+# (subset baseline, open-set variants, and the full-201-class runs — all regenerable/backed up)
+experiments*/
 *.zip
 *.pt
 *.pth
