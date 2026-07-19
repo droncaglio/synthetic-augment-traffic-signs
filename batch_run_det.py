@@ -58,14 +58,26 @@ CONTENT_ARMS = ("real_duplicate", "bg_photometric", "bg_photometric_mask", "phot
 
 
 def _arm_generated(tiles: str, prepared: str, arm: str, seed: int = 42) -> bool:
-    """True only if the arm's tiles are COMPLETE — the manifest's n_sources matches the
-    full shared source list. Guards against a partial lot (e.g. a --limit QA batch) whose
-    manifest would otherwise make the grid skip the real generation and train on a stub.
+    """True only if the arm's tiles are COMPLETE and CURRENT.
+
+    Complete: the manifest's n_sources matches the full shared source list (guards against a
+    partial --limit QA lot making the grid train on a stub).
+    Current: the manifest's per-class allocation matches the CURRENT allocation.json. If the
+    subset changed (e.g. 21-class -> full 201-class) the allocation differs, so the on-disk
+    tiles carry the OLD class-id space and must be regenerated — otherwise the grid silently
+    trains on stale tiles with wrong labels (the full-201 overnight bug).
     """
     mf = Path(tiles) / "arms" / arm / "generation_manifest.json"
     if not mf.exists():
         return False
-    n_have = json.loads(mf.read_text()).get("n_sources", 0)
+    man = json.loads(mf.read_text())
+    alloc_f = Path(prepared) / "allocation.json"
+    if alloc_f.exists():
+        cur = {int(k): int(v) for k, v in json.loads(alloc_f.read_text())["alloc"].items() if int(v) > 0}
+        have = {int(k): int(v) for k, v in man.get("allocated_per_class", {}).items() if int(v) > 0}
+        if cur != have:
+            return False  # stale: allocation (subset) changed since these tiles were generated
+    n_have = man.get("n_sources", 0)
     src = Path(prepared) / f"sources_seed{seed}.json"
     if not src.exists():
         return n_have > 0  # can't tell the full size -> accept any non-empty manifest
