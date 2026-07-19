@@ -133,6 +133,9 @@ def main() -> None:
     ap.add_argument("--batch", default="configs/detection/batches/full_grid_det.yaml")
     ap.add_argument("--device", default="0")
     ap.add_argument("--base-epochs", type=int, default=25)
+    ap.add_argument("--step-tol", type=float, default=0.02,
+                    help="equalized-steps tolerance forwarded to run_det (full-201 arms with "
+                         "~9k synthetic tiles need ~0.05 due to coarser epoch rounding)")
     ap.add_argument("--project", default="experiments/tt100k")
     ap.add_argument("--tiles", default="data/tt100k/tiles")
     ap.add_argument("--prepared", default="data/tt100k/prepared")
@@ -210,6 +213,7 @@ def main() -> None:
         status_path.write_text(json.dumps(status, indent=2))
         cmd = [sys.executable, str(ROOT / "run_det.py"), "--arm", arm, "--seed", str(seed),
                "--K", str(K), "--device", args.device, "--base-epochs", str(args.base_epochs),
+               "--step-tol", str(args.step_tol),
                "--project", args.project, "--no-notify"]  # batch owns grid notifications
         t0 = time.time()
         proc = subprocess.run(cmd)

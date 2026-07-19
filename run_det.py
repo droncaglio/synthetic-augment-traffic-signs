@@ -115,6 +115,10 @@ def main() -> None:
     ap.add_argument("--eval-split", default="val", choices=["val", "test"])
     ap.add_argument("--device", default="0")
     ap.add_argument("--base-epochs", type=int, default=100)
+    ap.add_argument("--step-tol", type=float, default=0.02,
+                    help="equalized-steps tolerance. The integer-epoch rounding deviation grows "
+                         "when an arm has many more tiles (fewer epochs = coarser granularity); "
+                         "full-201 arms (~9k synthetic) need ~0.05. 0.02 for the tight subset runs.")
     ap.add_argument("--batch", type=int, default=16)
     ap.add_argument("--imgsz", type=int, default=640)
     ap.add_argument("--workers", type=int, default=16)
@@ -153,11 +157,11 @@ def main() -> None:
         n_ref = _count_images(tiles_dir / "train" / "images")
         base_epochs = 2 if args.smoke else args.base_epochs
         total_steps = total_steps_from_reference(n_ref, args.batch, base_epochs)
-        plan = equalized_plan(n_arm, args.batch, total_steps)
+        plan = equalized_plan(n_arm, args.batch, total_steps, tol=args.step_tol)
         # Equalized-steps fairness is central to the paper: for official runs, abort
         # (don't just warn) if the realized step budget drifts out of tolerance.
         if not plan["within_tol"]:
-            msg = f"step budget deviation {plan['deviation']:.3f} for {args.arm} (tol 2%)"
+            msg = f"step budget deviation {plan['deviation']:.3f} for {args.arm} (tol {args.step_tol})"
             if args.smoke:
                 print(f"[warn smoke] {msg}")
             else:
