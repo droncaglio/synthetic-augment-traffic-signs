@@ -165,11 +165,13 @@ def main() -> None:
 
         ds_yaml = build_dataset_yaml(tiles_dir, train_dirs, subset,
                                      tiles_dir / f"dataset_{args.arm}.yaml")
+        t_train = time.time()
         weights = train_arm(ds_yaml, model_cfg["weights"], args.project, exp,
                             epochs=plan["epochs"], batch=args.batch, imgsz=args.imgsz,
                             seed=args.seed, runtime_aug=arm_cfg["runtime_aug"], device=args.device,
                             val=args.val, workers=args.workers,
                             cache=(args.cache or False))
+        train_seconds = time.time() - t_train
 
         # panorama-level evaluation
         records = {r["id"]: r for r in
@@ -189,6 +191,10 @@ def main() -> None:
                           "eval_split": args.eval_split, "epochs": plan["epochs"],
                           "steps": plan["realized_steps"], "deviation": plan["deviation"],
                           "within_tol": plan["within_tol"], "n_train_tiles": n_arm,
+                          # cost tracking (persisted for the ROI analysis): pure training wall
+                          # time, and the full run (train + panorama eval).
+                          "train_seconds": round(train_seconds, 1),
+                          "run_seconds": round(time.time() - t0, 1),
                           "loss_smoke_ok": loss_ok, "loss_check": loss_info}
 
         out = weights.parent.parent / "ap_report.json"  # alongside the trained weights

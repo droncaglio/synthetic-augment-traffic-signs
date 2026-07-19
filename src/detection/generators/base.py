@@ -128,9 +128,18 @@ class ArmGenerator(ABC):
             n_written += 1
             for ln in labels:
                 realized_labels.append({"class_id": int(ln.split()[0])})
+        gen_seconds = time.time() - t0
+        if resume:   # accumulate wall time across resumed passes (diffusion crash-safe restarts)
+            prior = out_dir / "generation_manifest.json"
+            if prior.exists():
+                gen_seconds += json.loads(prior.read_text()).get("gen_seconds", 0.0)
         manifest = {
             "arm": self.name, "seed": self.seed,
             "n_sources": len(sources), "n_tiles_written": n_written,
+            # generation cost (one-time per arm) — the ROI denominator: training is
+            # step-budget-equalized (~constant across arms), so generation is what differs.
+            "gen_seconds": round(gen_seconds, 1),
+            "gen_tiles_per_min": round(n_written / (gen_seconds / 60), 1) if gen_seconds > 0 else None,
             "allocated_per_class": per_class_counts(sources),
             "realized_per_class": per_class_counts(realized_labels),  # incl. co-occurring signs
         }
