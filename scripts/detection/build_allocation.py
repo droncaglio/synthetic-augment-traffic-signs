@@ -24,11 +24,14 @@ def _load_jsonl(path: Path) -> dict[str, dict]:
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--prepared", default="data/tt100k/prepared")
-    ap.add_argument("--out", default="data/tt100k/prepared/allocation.json")
+    ap.add_argument("--out", default=None,
+                    help="default: <prepared>/allocation.json (derived so a non-tt100k "
+                         "--prepared never writes into the tt100k spine)")
     ap.add_argument("--K", type=float, default=0.5)
     args = ap.parse_args()
 
     prepared = Path(args.prepared)
+    args.out = args.out or str(prepared / "allocation.json")
     rec_by_id = _load_jsonl(prepared / "panoramas.jsonl")
     subset = json.loads((prepared / "subset.json").read_text())
     subset_ids = {c["name"]: c["id"] for c in subset["classes"]}
