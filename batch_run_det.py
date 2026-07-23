@@ -213,7 +213,8 @@ def main() -> None:
         status_path.write_text(json.dumps(status, indent=2))
         cmd = [sys.executable, str(ROOT / "run_det.py"), "--arm", arm, "--seed", str(seed),
                "--K", str(K), "--device", args.device, "--base-epochs", str(args.base_epochs),
-               "--step-tol", str(args.step_tol),
+               "--step-tol", str(args.step_tol), "--prepared", args.prepared,
+               "--tiles", args.tiles,  # forward dataset paths (was defaulting to tt100k -> DFG broke)
                "--project", args.project, "--no-notify"]  # batch owns grid notifications
         t0 = time.time()
         proc = subprocess.run(cmd)
