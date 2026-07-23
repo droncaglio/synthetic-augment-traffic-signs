@@ -54,7 +54,7 @@ def _coco_records(coco: dict, split_orig: str) -> list[dict]:
                          "xyxy": [float(x), float(y), float(x + w), float(y + h)]})
         recs.append({
             "id": Path(im["file_name"]).stem,          # file stem = stable id across splits
-            "path": f"{split_orig}/{im['file_name']}",
+            "path": im["file_name"],                    # FLAT: images/<file_name> (see fetch_dfg)
             "split_orig": split_orig,
             "width": int(im["width"]),                  # PER-IMAGE (not fixed 2048)
             "height": int(im["height"]),
