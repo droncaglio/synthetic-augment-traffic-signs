@@ -16,18 +16,22 @@ from detection.run_naming import experiment_name
 def gts_by_pid(records: dict, split_ids: list, subset_ids: dict, size: int = 2048,
                keep: float = 0.6) -> dict:
     """{pid: [{class_id, box}]} for labelable subset signs (same filter as evaluate)."""
-    grid = tile_grid(size, size, 640, 128)
     out: dict = {}
     for pid in split_ids:
+        rec = records[pid]
+        # per-image dims + isotropic ref (DFG variable-size); TT100K W=H=size -> identical.
+        pw, ph = rec.get("width", size), rec.get("height", size)
+        ref = float(max(pw, ph))
+        grid = tile_grid(pw, ph, 640, 128)
         lst = []
-        for o in records[pid]["objects"]:
+        for o in rec["objects"]:
             cid = subset_ids.get(o["category"])
             if cid is None:
                 continue
             xyxy = tuple(o["xyxy"])
             if not any(clip_visibility(xyxy, t)[1] >= keep for t in grid):
                 continue
-            lst.append({"class_id": cid, "box": xyxy_to_yolo(xyxy, size, size)})
+            lst.append({"class_id": cid, "box": xyxy_to_yolo(xyxy, ref, ref)})
         out[pid] = lst
     return out
 

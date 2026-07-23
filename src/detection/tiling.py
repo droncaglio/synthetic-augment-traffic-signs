@@ -187,5 +187,6 @@ def tile_panorama(image_path: str | Path, record: dict, subset_ids: dict[str, in
         if ignores:
             (out_dir / "labels" / f"{name}.ignore.json").write_text(json.dumps(ignores))
         index.append({"tile": name, "panorama_id": pid,
-                      "x_off": int(tx1), "y_off": int(ty1), "size": size})
+                      "x_off": int(tx1), "y_off": int(ty1), "size": size,
+                      "pano_w": int(w), "pano_h": int(h)})  # for per-image reconstruct
     return index

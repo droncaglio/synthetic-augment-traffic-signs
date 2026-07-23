@@ -25,11 +25,16 @@ def panorama_ground_truths(records_by_id: dict[str, dict], split_ids: list[str],
     >= max sign size this never fires for TT100K, but we enforce the symmetry anyway.
     Returns (gts, n_excluded).
     """
-    grid = tile_grid(panorama_size, panorama_size, tile_size, tile_overlap)
     gts: list[GroundTruth] = []
     n_excluded = 0
     for img_id, pid in enumerate(split_ids):
-        for o in records_by_id[pid]["objects"]:
+        rec = records_by_id[pid]
+        # per-image dims + isotropic reference (variable-size datasets like DFG); for
+        # TT100K W=H=panorama_size so this is identical to the old fixed-size path.
+        pw, ph = rec.get("width", panorama_size), rec.get("height", panorama_size)
+        ref = float(max(pw, ph))
+        grid = tile_grid(pw, ph, tile_size, tile_overlap)
+        for o in rec["objects"]:
             cid = subset_ids.get(o["category"])
             if cid is None:
                 continue
@@ -37,7 +42,7 @@ def panorama_ground_truths(records_by_id: dict[str, dict], split_ids: list[str],
             if not any(clip_visibility(xyxy, t)[1] >= keep_thresh for t in grid):
                 n_excluded += 1
                 continue
-            cx, cy, w, h = xyxy_to_yolo(xyxy, panorama_size, panorama_size)
+            cx, cy, w, h = xyxy_to_yolo(xyxy, ref, ref)
             gts.append(GroundTruth(img_id, cid, cx, cy, w, h))
     return gts, n_excluded
 

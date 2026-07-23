@@ -34,14 +34,27 @@ def iou_cxcywh(a: Box, b: Box) -> float:
     return inter / union if union > 0 else 0.0
 
 
+def _pano_ref(tile_entry: dict, panorama_size: int) -> float:
+    """Isotropic per-image reference for normalization: max(W,H) if the tile carries the
+    panorama dims (variable-size datasets like DFG), else the fixed panorama_size (TT100K).
+
+    Using ONE reference for both axes keeps IoU/area undistorted on non-square images
+    (per-axis W/H would warp aspect ratio -> wrong IoU). For TT100K (W=H=2048) this is
+    byte-identical to the old fixed-size path.
+    """
+    if "pano_w" in tile_entry and "pano_h" in tile_entry:
+        return float(max(tile_entry["pano_w"], tile_entry["pano_h"]))
+    return float(panorama_size)
+
+
 def map_det_to_panorama(box_tile_norm: Box, tile_entry: dict, panorama_size: int) -> Box:
     """Tile-normalized (cx,cy,w,h) -> panorama-normalized (cx,cy,w,h)."""
     size = tile_entry["size"]
+    ref = _pano_ref(tile_entry, panorama_size)
     cx, cy, w, h = box_tile_norm
     px_cx = cx * size + tile_entry["x_off"]
     px_cy = cy * size + tile_entry["y_off"]
-    return (px_cx / panorama_size, px_cy / panorama_size,
-            w * size / panorama_size, h * size / panorama_size)
+    return (px_cx / ref, px_cy / ref, w * size / ref, h * size / ref)
 
 
 def nms_per_class(dets: list[dict], iou_thresh: float = 0.5) -> list[dict]:
@@ -60,8 +73,8 @@ def nms_per_class(dets: list[dict], iou_thresh: float = 0.5) -> list[dict]:
 def _ignore_to_panorama(ignore_xyxy_tilepx, tile_entry: dict, panorama_size: int):
     x1, y1, x2, y2 = ignore_xyxy_tilepx
     ox, oy = tile_entry["x_off"], tile_entry["y_off"]
-    return ((x1 + ox) / panorama_size, (y1 + oy) / panorama_size,
-            (x2 + ox) / panorama_size, (y2 + oy) / panorama_size)
+    ref = _pano_ref(tile_entry, panorama_size)
+    return ((x1 + ox) / ref, (y1 + oy) / ref, (x2 + ox) / ref, (y2 + oy) / ref)
 
 
 def reconstruct_panorama(tiles: Iterable[dict], panorama_size: int,
