@@ -137,6 +137,7 @@ def main() -> None:
                     help="equalized-steps tolerance forwarded to run_det (full-201 arms with "
                          "~9k synthetic tiles need ~0.05 due to coarser epoch rounding)")
     ap.add_argument("--project", default="experiments/tt100k")
+    ap.add_argument("--model", default="yolo11n", help="model config stem (yolo11n | yolo11s)")
     ap.add_argument("--tiles", default="data/tt100k/tiles")
     ap.add_argument("--prepared", default="data/tt100k/prepared")
     ap.add_argument("--scan-weights", default=None,
@@ -214,7 +215,7 @@ def main() -> None:
         cmd = [sys.executable, str(ROOT / "run_det.py"), "--arm", arm, "--seed", str(seed),
                "--K", str(K), "--device", args.device, "--base-epochs", str(args.base_epochs),
                "--step-tol", str(args.step_tol), "--prepared", args.prepared,
-               "--tiles", args.tiles,  # forward dataset paths (was defaulting to tt100k -> DFG broke)
+               "--tiles", args.tiles, "--model", args.model,  # forward dataset paths + model
                "--project", args.project, "--no-notify"]  # batch owns grid notifications
         t0 = time.time()
         proc = subprocess.run(cmd)

@@ -1,0 +1,6 @@
+# Detector config (Hydra group `model`). YOLO11s = bigger backbone than 11n.
+# Used for the capacity ablation (preempts the "you only used the nano" reviewer note):
+# does the cheap-augmentation gain hold at a larger detector?
+name: yolo11s
+weights: yolo11s.pt   # ultralytics auto-downloads if missing (gitignored)
+imgsz: 640

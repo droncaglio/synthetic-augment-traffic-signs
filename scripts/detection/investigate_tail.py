@@ -143,6 +143,8 @@ def main() -> None:
     L += ["\n## Poder — efeito mínimo detectável (MDE) a n=7, 80% poder\n",
           "| contraste | ΔAP obs | dp(Δ) | MDE(80%) | detectável? |", "|---|---|---|---|---|"]
     for treat, base in KEY_CONTRASTS:
+        if treat not in ap_cs or base not in ap_cs:
+            continue
         common = sorted(set(ap_cs[treat]) & set(ap_cs[base]))
         deltas = [seed_macro(treat, s, tail_ids) - seed_macro(base, s, tail_ids) for s in common]
         m, sd = st.mean(deltas), (st.stdev(deltas) if len(deltas) > 1 else 0.0)

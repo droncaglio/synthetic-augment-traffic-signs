@@ -130,6 +130,9 @@ def main() -> None:
     ap.add_argument("--prepared", default="data/tt100k/prepared")
     ap.add_argument("--tiles", default="data/tt100k/tiles")
     ap.add_argument("--configs", default="configs/detection")
+    ap.add_argument("--model", default="yolo11n",
+                    help="model config stem in configs/detection/model/ (e.g. yolo11n, yolo11s "
+                         "for the capacity ablation)")
     ap.add_argument("--project", default="experiments/tt100k")
     ap.add_argument("--no-notify", action="store_true",
                     help="disable this run's own Telegram messages (the batch owns the "
@@ -142,7 +145,7 @@ def main() -> None:
     prepared, tiles_dir, cfgs = Path(args.prepared), Path(args.tiles), Path(args.configs)
     subset = json.loads((prepared / "subset.json").read_text())
     arm_cfg = _load_yaml(cfgs / "arm" / f"{args.arm}.yaml")
-    model_cfg = _load_yaml(cfgs / "model" / "yolo11n.yaml")
+    model_cfg = _load_yaml(cfgs / "model" / f"{args.model}.yaml")
 
     exp = experiment_name(args.arm, args.seed, smoke=args.smoke, budget_tag=budget_tag(args.K))
     notifier = _NullNotifier() if args.no_notify else TelegramNotifier.from_env()
