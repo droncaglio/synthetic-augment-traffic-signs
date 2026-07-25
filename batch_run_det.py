@@ -159,7 +159,9 @@ def main() -> None:
     cfg = yaml.safe_load(Path(args.batch).read_text())
     K = float(cfg.get("K", 0.5))
     bm = budget_tag(K)
-    dataset = cfg.get("dataset", "tt100k")
+    # Infer the dataset from the --prepared path (data/<dataset>/prepared) so the run-id /
+    # Telegram label matches the ACTUAL dataset, not the batch config's fixed field.
+    dataset = Path(args.prepared).parent.name or cfg.get("dataset", "tt100k")
     arms = args.arms or cfg["arms"]
     seeds = args.seeds or cfg["seeds"]
     runs = [(arm, seed) for arm in arms for seed in seeds]
