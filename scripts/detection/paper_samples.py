@@ -1,23 +1,25 @@
 #!/usr/bin/env python
-"""Qualitative figure for the paper: the context-novelty ladder, one sign across arms.
+"""Qualitative figure for the WVC paper (Fig. 2): the augmentation cost ladder,
+one sign across arms.
 
 Because every content arm consumes the SAME shared source manifest (seed 42), the same
-real sign instance can be shown transformed by each arm side by side — a truly paired
-ladder of increasing background novelty:
+real sign instance can be shown as produced by each arm side by side, a truly paired
+ladder ordered by generation cost:
 
-  original(=zero_aug=real_duplicate) | da_only | bg_photometric | copy_paste | diffusion_bg
+  original(=real_duplicate) | da_only | photometric_full | copy_paste | diffusion_bg | signgen_controlnet
 
-Each cell is a magnified crop around the sign so the (background) change is visible.
-- original / real_duplicate: identity — the source tile crop.
-- da_only: rendered offline here (Ultralytics augment_hsv + fliplr from the arm config),
-  labelled REPRESENTATIVE — the real arm applies it online at train time.
-- bg_photometric / copy_paste / diffusion_bg: the actual generated tiles (copy_paste
-  relocates the sign, so its own label gives the bbox). Missing arms render as "n/a".
+Each cell is a magnified crop around the sign so the change is visible.
+- original / real_duplicate: identity, the source tile crop (Real-Duplicate = verbatim copy).
+- da_only (Standard-Aug): rendered offline here (Ultralytics augment_hsv + fliplr from the
+  arm config), labelled REPRESENTATIVE, since the real arm applies it online at train time.
+- photometric_full / copy_paste / diffusion_bg / signgen_controlnet: the actual generated
+  tiles (copy_paste and signgen relocate/synthesize the sign, so their own label gives the
+  bbox). Missing arms render as "n/a" (e.g. when run off the workstation without the tiles).
 
-Usage:
+Usage (run on the workstation, where all arm tiles live):
   python scripts/detection/paper_samples.py --tiles data/tt100k/tiles \
-      --prepared data/tt100k/prepared --seed 42 --n 8 --zoom 1.6 \
-      --out reports/qa/paper_ladder.png [--class-id 5] [--boxes]
+      --prepared data/tt100k/prepared --seed 42 --class-id <TAIL_CLASS> --zoom 1.6 \
+      --per-cell --out reports/qa/ladder/cost_ladder.png [--boxes]
 """
 from __future__ import annotations
 
@@ -32,11 +34,13 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
 from matplotlib.patches import Rectangle  # noqa: E402
 
-# ladder order; "original" and "da_only" are rendered, the rest are read from disk.
-COLUMNS = ["original", "da_only", "bg_photometric", "copy_paste", "diffusion_bg"]
-COL_LABELS = {"original": "Original (Real-dup.)", "da_only": "DA-only (repr.)",
-              "bg_photometric": "Bg-Photometric", "copy_paste": "Copy-Paste",
-              "diffusion_bg": "Diffusion-Bg"}
+# ladder order (by generation cost); "original" and "da_only" are rendered, the rest
+# are read from disk. Arm dir names must match the code identifiers on disk.
+COLUMNS = ["original", "da_only", "photometric_full", "copy_paste", "diffusion_bg",
+           "signgen_controlnet"]
+COL_LABELS = {"original": "Real crop", "da_only": "Standard-Aug (repr.)",
+              "photometric_full": "Photometric-Full", "copy_paste": "Copy-Paste",
+              "diffusion_bg": "Diffusion-BG", "signgen_controlnet": "SignGen"}
 DA_AUG = {"fliplr": 0.5, "hsv_h": 0.015, "hsv_s": 0.7, "hsv_v": 0.4}
 
 
@@ -186,7 +190,7 @@ def main() -> None:
         axes[r][0].set_ylabel(src["source_tile"], fontsize=6, rotation=0,
                               ha="right", va="center", labelpad=20)
         per_sample_data.append((i, src, loaded))
-    fig.suptitle(f"Context-novelty ladder — same real sign across arms (seed {args.seed})",
+    fig.suptitle(f"Augmentation cost ladder: same real sign across arms (seed {args.seed})",
                  fontsize=11)
     fig.tight_layout(rect=(0, 0, 1, 0.97))
     fig.savefig(out, dpi=200)
