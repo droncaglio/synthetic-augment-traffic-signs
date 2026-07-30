@@ -41,7 +41,8 @@ COLUMNS = ["original", "da_only", "photometric_full", "copy_paste", "diffusion_b
 COL_LABELS = {"original": "Real crop", "da_only": "Standard-Aug (repr.)",
               "photometric_full": "Photometric-Full", "copy_paste": "Copy-Paste",
               "diffusion_bg": "Diffusion-BG", "signgen_controlnet": "SignGen"}
-DA_AUG = {"fliplr": 0.5, "hsv_h": 0.015, "hsv_s": 0.7, "hsv_v": 0.4}
+# fliplr=0: the real da_only keeps it (signs are directional; arm config sets fliplr 0).
+DA_AUG = {"fliplr": 0.0, "hsv_h": 0.015, "hsv_s": 0.7, "hsv_v": 0.4}
 
 
 def _augment_hsv(img: np.ndarray, h: float, s: float, v: float, rng) -> np.ndarray:
@@ -165,7 +166,11 @@ def main() -> None:
     def _row(axrow, i, titles: bool):
         """Fill one axis row for source index i; returns the loaded (img, box) per arm."""
         src = sources[i]
-        op = train_img / f"{src['source_tile']}.jpg"
+        # Real crop / Standard-Aug come from the real_duplicate arm tile (verbatim copy
+        # of the source tile), which stays index-aligned with the other arms; the raw
+        # train tile is a fallback for older layouts where source_tile still resolves.
+        rd = tiles / "arms" / "real_duplicate" / "images" / f"syn_real_duplicate_{i:06d}.jpg"
+        op = rd if rd.exists() else (train_img / f"{src['source_tile']}.jpg")
         orig = np.asarray(Image.open(op).convert("RGB")) if op.exists() else None
         loaded = {}
         for c, col in enumerate(COLUMNS):
