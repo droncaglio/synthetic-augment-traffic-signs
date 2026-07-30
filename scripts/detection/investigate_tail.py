@@ -94,7 +94,7 @@ def main() -> None:
         return st.mean(vals) if vals else float("nan")
 
     L = ["# Investigação da cauda — heterogeneidade, alocação, poder (all-size)\n",
-         f"- split **{args.eval_split}**, K={args.K}, 42 classes de cauda, 7 seeds",
+         f"- split **{args.eval_split}**, K={args.K}, {len(tail_ids)} classes de cauda, {len(args.seeds)} seeds",
          f"- alocação na cauda: total {sum(alloc[c] for c in tail_ids)} synth; "
          f"starved (0) = {sum(1 for c in tail_ids if alloc[c]==0)} classes\n"]
 
