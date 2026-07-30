@@ -80,14 +80,16 @@ def _first_box(label_path: Path):
 
 
 def _zoom(img: np.ndarray, box, pad: float):
-    """Crop a square window around the normalized box (cx,cy,bw,bh) with pad margin."""
+    """Crop a SQUARE window around the normalized box (cx,cy,bw,bh) with pad margin.
+    The window is SHIFTED (not clipped) to stay in-bounds, so every cell stays square
+    even when the sign sits near a tile edge; only shrunk if it exceeds the tile."""
     h, w = img.shape[:2]
     cx, cy, bw, bh = box
-    half = max(bw * w, bh * h) * (0.5 + pad)
+    side = min(int(max(bw * w, bh * h) * (1.0 + 2 * pad)), h, w)
     px, py = cx * w, cy * h
-    x0, y0 = max(0, int(px - half)), max(0, int(py - half))
-    x1, y1 = min(w, int(px + half)), min(h, int(py + half))
-    crop = img[y0:y1, x0:x1]
+    x0 = min(max(0, int(px - side / 2)), w - side)
+    y0 = min(max(0, int(py - side / 2)), h - side)
+    crop = img[y0:y0 + side, x0:x0 + side]
     bx = ((px - bw * w / 2) - x0, (py - bh * h / 2) - y0, bw * w, bh * h)
     return crop, bx
 
