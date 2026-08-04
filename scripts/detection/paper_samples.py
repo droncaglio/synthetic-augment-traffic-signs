@@ -38,7 +38,7 @@ from matplotlib.patches import Rectangle  # noqa: E402
 # are read from disk. Arm dir names must match the code identifiers on disk.
 COLUMNS = ["original", "da_only", "photometric_full", "copy_paste", "diffusion_bg",
            "signgen_controlnet"]
-COL_LABELS = {"original": "Real crop", "da_only": "Standard-Aug (repr.)",
+COL_LABELS = {"original": "Real crop", "da_only": "Standard-Aug (example)",
               "photometric_full": "Photometric-Full", "copy_paste": "Copy-Paste",
               "diffusion_bg": "Diffusion-BG", "signgen_controlnet": "SignGen"}
 # fliplr=0: the real da_only keeps it (signs are directional; arm config sets fliplr 0).
@@ -197,7 +197,7 @@ def main() -> None:
         axes[r][0].set_ylabel(src["source_tile"], fontsize=6, rotation=0,
                               ha="right", va="center", labelpad=20)
         per_sample_data.append((i, src, loaded))
-    fig.suptitle(f"Augmentation cost ladder: same real sign across arms (seed {args.seed})",
+    fig.suptitle(f"Augmentation cost ladder: same real sign across strategies (seed {args.seed})",
                  fontsize=11)
     fig.tight_layout(rect=(0, 0, 1, 0.97))
     fig.savefig(out, dpi=200)
