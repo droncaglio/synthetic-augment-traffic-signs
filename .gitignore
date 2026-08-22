@@ -46,3 +46,6 @@ batch_status*.json
 .DS_Store
 .idea/
 .vscode/
+
+# Generation-manifest archive (provenance dup of data/*/tiles/arms/; incomplete: TT100K-only, legacy arms)
+full201_gen/
