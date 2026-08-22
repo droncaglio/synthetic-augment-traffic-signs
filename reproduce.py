@@ -264,7 +264,10 @@ def _step(cmd: list, sentinel: Path, label: str, force: bool, dry_run: bool) -> 
         ok(f"{label}: already done ({sentinel.relative_to(PROJECT_ROOT)})")
         return True
     log(f"{label} ...")
-    rc = run_cmd(cmd + (["--force"] if force and "--force" not in cmd else []), dry_run=dry_run)
+    # force bypasses the sentinel above; --force is added by the caller only to the
+    # self-skipping scripts that accept it (prepare_tt100k / prepare_dfg). The transform
+    # scripts (make_full_subset, make_splits, tiling, allocation) always overwrite.
+    rc = run_cmd(cmd, dry_run=dry_run)
     if rc != 0:
         fail(f"{label} failed (rc={rc})")
         return False
@@ -276,12 +279,13 @@ def step_prepare(force: bool, dry_run: bool) -> bool:
     section(f"PREPARE — {DATASET} data spine")
     S = "scripts/detection"
     subset = PREPARED / "subset.json"
+    ff = ["--force"] if force else []   # only the self-skipping prepare scripts take --force
     if DATASET == "tt100k":
         # full-201 subset (make_full_subset), not the pre-pivot 21-class select_subset:
         # the paper trains on ALL annotated classes to remove the open-set FP artifact.
         chain = [
             (["python", f"{S}/prepare_tt100k.py", "--annotations", str(RAW_ANNOTATIONS),
-              "--out", str(PREPARED)], PREPARED / "catalog.json", "prepare_tt100k"),
+              "--out", str(PREPARED), *ff], PREPARED / "catalog.json", "prepare_tt100k"),
             (["python", f"{S}/make_full_subset.py", "--prepared", str(PREPARED),
               "--out", str(subset)], subset, "make_full_subset (full-201)"),
             (["python", f"{S}/make_splits.py", "--prepared", str(PREPARED), "--raw", str(RAW_DIR),
@@ -290,7 +294,7 @@ def step_prepare(force: bool, dry_run: bool) -> bool:
     else:  # dfg: prepare_dfg writes panoramas/catalog/splits (official split); then full-201.
         chain = [
             (["python", f"{S}/prepare_dfg.py", "--raw", str(RAW_DIR), "--out", str(PREPARED),
-              "--val-frac", "0.15"], PREPARED / "splits.json", "prepare_dfg"),
+              "--val-frac", "0.15", *ff], PREPARED / "splits.json", "prepare_dfg"),
             (["python", f"{S}/make_full_subset.py", "--prepared", str(PREPARED),
               "--out", str(subset)], subset, "make_full_subset (full-201)"),
         ]
@@ -372,11 +376,11 @@ def _default_scanner() -> Optional[str]:
 
 
 # ─── train ─────────────────────────────────────────────────────────────────────
-def step_train(arms: Optional[list], seeds: Optional[list], base_epochs: int,
+def step_train(arms: Optional[list], seeds: Optional[list], base_epochs: int, step_tol: float,
                device: str, scan_weights: Optional[str], dry_run: bool) -> bool:
     section(f"TRAIN — batch_run_det.py ({CELL}, generation embedded)")
     cmd = ["python", "batch_run_det.py", "--batch", str(BATCH_YAML),
-           "--device", device, "--base-epochs", str(base_epochs),
+           "--device", device, "--base-epochs", str(base_epochs), "--step-tol", str(step_tol),
            "--project", str(PROJECT_EXP), "--tiles", str(TILES), "--prepared", str(PREPARED),
            "--model", MODEL, "--status-file", str(STATUS_FILE)]
     if arms:
@@ -463,6 +467,10 @@ def parse_args() -> argparse.Namespace:
                    help=f"restrict to a subset of arms {ALL_ARMS}")
     p.add_argument("--seeds", type=int, nargs="+", default=None)
     p.add_argument("--base-epochs", type=int, default=25)
+    p.add_argument("--step-tol", type=float, default=0.05,
+                   help="equalized-steps tolerance for the fairness invariant; full-201 arms "
+                        "(~9k synthetic tiles) need ~0.05 due to coarser epoch rounding (0.02 is "
+                        "too tight and aborts). Smoke uses 1.0.")
     p.add_argument("--eval-split", choices=["val", "test"], default="test")
     p.add_argument("--scan-weights", default=None, help="diffusion_bg scanner override")
     p.add_argument("--device", default="0")
@@ -479,10 +487,12 @@ def main() -> int:
     args = parse_args()
     step = args.step
     arms, seeds, base_epochs = args.arms, args.seeds, args.base_epochs
+    step_tol = args.step_tol
     if args.smoke:  # fast spine validation: exclude the slow diffusion arm
         arms = arms or ["zero_aug", "real_duplicate"]
         seeds = seeds or [0]
         base_epochs = 2
+        step_tol = 1.0   # a 2-epoch smoke can't meet the tight fairness tolerance
 
     datasets = DATASETS if args.dataset == "all" else [args.dataset]
     models = MODELS if args.model == "all" else [args.model]
@@ -556,8 +566,9 @@ def main() -> int:
 
             if step in ("train", "all"):
                 _, abort = _run_step(notifier, f"train[{CELL}]",
-                                     lambda: step_train(arms, seeds, base_epochs, args.device,
-                                                        args.scan_weights, args.dry_run),
+                                     lambda: step_train(arms, seeds, base_epochs, step_tol,
+                                                        args.device, args.scan_weights,
+                                                        args.dry_run),
                                      True, args.dry_run)
                 if abort:
                     return 1
