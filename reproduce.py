@@ -2,11 +2,15 @@
 """
 reproduce.py — single orchestrator to reproduce Paper 3 (WVC) end to end.
 
-Long-tail traffic-sign detection on TT100K with a context-novelty cost ladder of
-augmentation arms (zero_aug, da_only, real_duplicate, bg_photometric, copy_paste,
-diffusion_bg). yolo11n, K=0.5, 7 seeds, panorama-reconstruction + global-NMS eval,
-equalized optimizer steps across arms. One command runs the whole grid:
-  check -> download -> prepare -> generate -> train -> report.
+Long-tail traffic-sign detection with a budget-matched cost ladder of 7 augmentation
+arms — zero_aug (No-Aug), da_only (Standard-Aug), real_duplicate, photometric_full,
+copy_paste, diffusion_bg, signgen_controlnet (SignGen) — at K=0.5, with panorama-
+reconstruction + global-NMS evaluation and optimizer steps equalized across arms.
+The full paper grid is 2 datasets (TT100K, DFG) x 2 detectors (yolo11n, yolo11s) x
+7 arms x 14 seeds. Each (dataset x detector) is a CELL with isolated tiles /
+experiments / status / report paths; `--dataset`/`--model` pick a cell (default: all).
+One command runs the whole grid, cell by cell:
+  check -> [per cell] download -> prepare -> generate -> train -> report.
 
 Steps:
   check     — validate the environment (conda, GPU, core deps, AND the diffusion
@@ -40,9 +44,10 @@ Filters / modes:
   --device          GPU index (default 0).   --eval-split {val,test} for report.
 
 Examples:
-  python reproduce.py                                   # all: check->...->report
-  python reproduce.py --smoke                           # fast spine validation
-  python reproduce.py --step prepare                    # build the data spine only
+  python reproduce.py                                   # all cells, all steps
+  python reproduce.py --dataset tt100k --model yolo11n  # one cell, full pipeline
+  python reproduce.py --smoke                           # fast spine validation (tt100k/11n)
+  python reproduce.py --step prepare --dataset dfg      # build the DFG data spine only
   python reproduce.py --step generate --arm diffusion_bg   # the ~17h diffusion pass
   python reproduce.py --step report --eval-split test   # final contrasts on test
 """
@@ -67,22 +72,51 @@ from detection.notifications.telegram import LogCapture, TelegramNotifier, load_
 
 CONDA_ENV = "augment-traffic-signs"
 VALID_STEPS = ["check", "download", "prepare", "build_masks", "generate", "train", "report", "all"]
-ALL_ARMS = ["zero_aug", "da_only", "real_duplicate", "bg_photometric", "copy_paste", "diffusion_bg"]
-CONTENT_ARMS = ["real_duplicate", "bg_photometric", "copy_paste", "diffusion_bg"]
+
+# The paper's cost ladder — 7 arms (paper name in parentheses):
+#   zero_aug (No-Aug), da_only (Standard-Aug), real_duplicate (Real-Duplicate),
+#   photometric_full (Photometric-Full), copy_paste (Copy-Paste),
+#   diffusion_bg (Diffusion-BG), signgen_controlnet (SignGen).
+ALL_ARMS = ["zero_aug", "da_only", "real_duplicate", "photometric_full",
+            "copy_paste", "diffusion_bg", "signgen_controlnet"]
+CONTENT_ARMS = ["real_duplicate", "photometric_full", "copy_paste",
+                "diffusion_bg", "signgen_controlnet"]
+DEFAULT_SEEDS = list(range(14))            # the paper uses 14 seeds
+DATASETS = ["tt100k", "dfg"]               # two long-tailed benchmarks
+MODELS = ["yolo11n", "yolo11s"]            # two detector capacities
 BATCH_YAML = PROJECT_ROOT / "configs" / "detection" / "batches" / "full_grid_det.yaml"
 
-# TT100K 2021 raw
-RAW_DIR = PROJECT_ROOT / "data" / "tt100k" / "tt100k_2021"
-RAW_ANNOTATIONS = RAW_DIR / "annotations_all.json"
+# TT100K 2021 raw is auto-downloadable. DFG images come from scripts/fetch_dfg.py; DFG
+# train.json/test.json (annotations) are user-provided under data/dfg/ (see README).
 TT100K_URL = "https://cg.cs.tsinghua.edu.cn/traffic-sign/tt100k_2021.zip"
 TT100K_ZIP = PROJECT_ROOT / "data" / "tt100k" / "tt100k_2021.zip"
 
-# prepared / tiles / experiments
-PREPARED = PROJECT_ROOT / "data" / "tt100k" / "prepared"
-TILES = PROJECT_ROOT / "data" / "tt100k" / "tiles"
-PROJECT_EXP = PROJECT_ROOT / "experiments" / "tt100k"
-STATUS_FILE = PROJECT_ROOT / "batch_status_det.json"
-REPORT_DIR = PROJECT_ROOT / "reports" / "det"
+# ─── per-cell paths (set by configure_cell for each dataset x detector) ─────────
+DATASET = MODEL = CELL = None
+RAW_DIR = RAW_ANNOTATIONS = PREPARED = TILES = PROJECT_EXP = STATUS_FILE = REPORT_DIR = None
+
+
+def configure_cell(dataset: str, model: str) -> None:
+    """Point every per-cell path at one (dataset x detector) cell, so cells have
+    isolated tiles / experiments / status / report paths and never clobber each other."""
+    global DATASET, MODEL, CELL, RAW_DIR, RAW_ANNOTATIONS, PREPARED, TILES
+    global PROJECT_EXP, STATUS_FILE, REPORT_DIR
+    DATASET, MODEL, CELL = dataset, model, f"{dataset}_{model}"
+    base = PROJECT_ROOT / "data" / dataset
+    PREPARED = base / "prepared"
+    TILES = base / "tiles"
+    if dataset == "tt100k":
+        RAW_DIR = base / "tt100k_2021"
+        RAW_ANNOTATIONS = RAW_DIR / "annotations_all.json"
+    else:  # dfg: raw root holds train.json/test.json; images live under data/dfg/images
+        RAW_DIR = base
+        RAW_ANNOTATIONS = base / "train.json"
+    PROJECT_EXP = PROJECT_ROOT / "experiments" / CELL
+    STATUS_FILE = PROJECT_ROOT / f"batch_status_{CELL}.json"
+    REPORT_DIR = PROJECT_ROOT / "reports" / "det" / CELL
+
+
+configure_cell("tt100k", "yolo11n")   # default cell (backward compatible)
 
 
 # ─── logging ───────────────────────────────────────────────────────────────────
@@ -173,7 +207,11 @@ def _importable(pkg: str) -> bool:
 
 # ─── download ──────────────────────────────────────────────────────────────────
 def step_download(dry_run: bool) -> bool:
-    section("DOWNLOAD — TT100K 2021 raw files")
+    section(f"DOWNLOAD — {DATASET} raw files")
+    return _download_tt100k(dry_run) if DATASET == "tt100k" else _download_dfg(dry_run)
+
+
+def _download_tt100k(dry_run: bool) -> bool:
     if RAW_ANNOTATIONS.exists():
         ok(f"raw present: {RAW_ANNOTATIONS.relative_to(PROJECT_ROOT)}")
         return True
@@ -199,6 +237,27 @@ def step_download(dry_run: bool) -> bool:
         return False
 
 
+def _download_dfg(dry_run: bool) -> bool:
+    """DFG images auto-fetch via scripts/fetch_dfg.py (~7.5 GB, no auth). The DFG-TSD
+    train.json/test.json annotations are user-provided under data/dfg/ (see README)."""
+    train_j, test_j, imgs = RAW_DIR / "train.json", RAW_DIR / "test.json", RAW_DIR / "images"
+    if not (train_j.exists() and test_j.exists()):
+        fail(f"DFG annotations missing — place train.json + test.json under "
+             f"{RAW_DIR.relative_to(PROJECT_ROOT)}/ (the DFG-TSD split; see README).")
+        return False
+    if imgs.exists() and any(imgs.glob("*.jpg")):
+        ok(f"DFG raw present: {RAW_DIR.relative_to(PROJECT_ROOT)}")
+        return True
+    if dry_run:
+        log("would run scripts/fetch_dfg.py (downloads ~7.5 GB DFG images)", "→")
+        return True
+    if run_cmd(["python", "scripts/fetch_dfg.py", "--root", str(RAW_DIR)]) != 0:
+        fail("DFG image fetch failed — run scripts/fetch_dfg.py manually.")
+        return False
+    ok("DFG raw ready")
+    return True
+
+
 # ─── prepare (data spine) ──────────────────────────────────────────────────────
 def _step(cmd: list, sentinel: Path, label: str, force: bool, dry_run: bool) -> bool:
     if sentinel.exists() and not force:
@@ -214,16 +273,27 @@ def _step(cmd: list, sentinel: Path, label: str, force: bool, dry_run: bool) -> 
 
 
 def step_prepare(force: bool, dry_run: bool) -> bool:
-    section("PREPARE — TT100K data spine")
+    section(f"PREPARE — {DATASET} data spine")
     S = "scripts/detection"
-    chain = [
-        (["python", f"{S}/prepare_tt100k.py", "--annotations", str(RAW_ANNOTATIONS),
-          "--out", str(PREPARED)], PREPARED / "catalog.json", "prepare_tt100k"),
-        (["python", f"{S}/select_subset.py", "--catalog", str(PREPARED / "catalog.json"),
-          "--out", str(PREPARED / "subset.json")], PREPARED / "subset.json", "select_subset"),
-        (["python", f"{S}/make_splits.py", "--prepared", str(PREPARED), "--raw", str(RAW_DIR),
-          "--out", str(PREPARED / "splits.json")], PREPARED / "splits.json", "make_splits"),
-    ]
+    subset = PREPARED / "subset.json"
+    if DATASET == "tt100k":
+        # full-201 subset (make_full_subset), not the pre-pivot 21-class select_subset:
+        # the paper trains on ALL annotated classes to remove the open-set FP artifact.
+        chain = [
+            (["python", f"{S}/prepare_tt100k.py", "--annotations", str(RAW_ANNOTATIONS),
+              "--out", str(PREPARED)], PREPARED / "catalog.json", "prepare_tt100k"),
+            (["python", f"{S}/make_full_subset.py", "--prepared", str(PREPARED),
+              "--out", str(subset)], subset, "make_full_subset (full-201)"),
+            (["python", f"{S}/make_splits.py", "--prepared", str(PREPARED), "--raw", str(RAW_DIR),
+              "--out", str(PREPARED / "splits.json")], PREPARED / "splits.json", "make_splits"),
+        ]
+    else:  # dfg: prepare_dfg writes panoramas/catalog/splits (official split); then full-201.
+        chain = [
+            (["python", f"{S}/prepare_dfg.py", "--raw", str(RAW_DIR), "--out", str(PREPARED),
+              "--val-frac", "0.15"], PREPARED / "splits.json", "prepare_dfg"),
+            (["python", f"{S}/make_full_subset.py", "--prepared", str(PREPARED),
+              "--out", str(subset)], subset, "make_full_subset (full-201)"),
+        ]
     for cmd, sentinel, label in chain:
         if not _step(cmd, sentinel, label, force, dry_run):
             return False
@@ -304,9 +374,11 @@ def _default_scanner() -> Optional[str]:
 # ─── train ─────────────────────────────────────────────────────────────────────
 def step_train(arms: Optional[list], seeds: Optional[list], base_epochs: int,
                device: str, scan_weights: Optional[str], dry_run: bool) -> bool:
-    section("TRAIN — batch_run_det.py (generation embedded)")
+    section(f"TRAIN — batch_run_det.py ({CELL}, generation embedded)")
     cmd = ["python", "batch_run_det.py", "--batch", str(BATCH_YAML),
-           "--device", device, "--base-epochs", str(base_epochs), "--project", str(PROJECT_EXP)]
+           "--device", device, "--base-epochs", str(base_epochs),
+           "--project", str(PROJECT_EXP), "--tiles", str(TILES), "--prepared", str(PREPARED),
+           "--model", MODEL, "--status-file", str(STATUS_FILE)]
     if arms:
         cmd += ["--arms", *arms]
     if seeds:
@@ -325,11 +397,10 @@ def step_train(arms: Optional[list], seeds: Optional[list], base_epochs: int,
 
 # ─── report ────────────────────────────────────────────────────────────────────
 def step_report(eval_split: str, seeds: Optional[list], dry_run: bool) -> bool:
-    section(f"REPORT — det_report.py (eval={eval_split})")
+    section(f"REPORT — det_report.py ({CELL}, eval={eval_split})")
     cmd = ["python", "scripts/detection/det_report.py", "--project", str(PROJECT_EXP),
-           "--prepared", str(PREPARED), "--eval-split", eval_split, "--out", str(REPORT_DIR)]
-    if seeds:
-        cmd += ["--seeds", *[str(s) for s in seeds]]
+           "--prepared", str(PREPARED), "--eval-split", eval_split, "--out", str(REPORT_DIR),
+           "--seeds", *[str(s) for s in (seeds or DEFAULT_SEEDS)]]
     if run_cmd(cmd, dry_run=dry_run) != 0:
         fail("det_report failed")
         return False
@@ -381,9 +452,13 @@ def _run_step(notifier, name: str, fn: Callable[[], bool], fatal: bool, dry_run:
 
 # ─── CLI ───────────────────────────────────────────────────────────────────────
 def parse_args() -> argparse.Namespace:
-    p = argparse.ArgumentParser(description="Reproduce Paper 3 (TT100K detection) end to end.",
+    p = argparse.ArgumentParser(description="Reproduce Paper 3 (traffic-sign detection) end to end.",
                                 formatter_class=argparse.RawDescriptionHelpFormatter, epilog=__doc__)
     p.add_argument("--step", choices=VALID_STEPS, default="all")
+    p.add_argument("--dataset", choices=[*DATASETS, "all"], default="all",
+                   help="which dataset cell(s) to run (default: all)")
+    p.add_argument("--model", choices=[*MODELS, "all"], default="all",
+                   help="which detector cell(s) to run (default: all)")
     p.add_argument("--arm", dest="arms", nargs="+", default=None,
                    help=f"restrict to a subset of arms {ALL_ARMS}")
     p.add_argument("--seeds", type=int, nargs="+", default=None)
@@ -409,8 +484,15 @@ def main() -> int:
         seeds = seeds or [0]
         base_epochs = 2
 
+    datasets = DATASETS if args.dataset == "all" else [args.dataset]
+    models = MODELS if args.model == "all" else [args.model]
+    if args.smoke:  # smoke validates a single cell's spine only
+        datasets, models = ["tt100k"], ["yolo11n"]
+    cells = [(d, m) for d in datasets for m in models]
+
     section("REPRODUCE — synthetic-augment-traffic-signs (Paper 3 / WVC)")
-    for k, v in [("step", step), ("arms", arms or "all"), ("seeds", seeds or "config"),
+    for k, v in [("step", step), ("cells", ", ".join(f"{d}/{m}" for d, m in cells)),
+                 ("arms", arms or "all"), ("seeds", seeds or "config"),
                  ("base_epochs", base_epochs), ("eval_split", args.eval_split),
                  ("smoke", args.smoke), ("force", args.force), ("dry_run", args.dry_run)]:
         log(f"{k:12}: {v}")
@@ -425,72 +507,78 @@ def main() -> int:
         if not args.dry_run:
             notifier.send_separator()
             notifier.send_message(f"🧪 <b>REPRODUCE START</b>{' [SMOKE]' if args.smoke else ''}\n"
-                                  f"<code>{step}</code> · arms={arms or 'all'}")
+                                  f"<code>{step}</code> · cells={len(cells)} · arms={arms or 'all'}")
 
-        if args.clean:
-            _, abort = _run_step(notifier, "clean",
-                                 lambda: step_clean(args.dry_run, args.yes), True, args.dry_run)
-            if abort:
-                return 1
-
+        # The environment check is cell-independent — run it once, up front.
         if step in ("check", "all"):
             _run_step(notifier, "check", step_check, False, args.dry_run)
 
-        if step in ("download", "all") and not args.skip_download:
-            good, _ = _run_step(notifier, "download",
-                                lambda: step_download(args.dry_run),
-                                fatal=(step == "download"), dry_run=args.dry_run)
-            if not good and step == "download":
-                return 1
-            if not good:
-                warn("raw files missing — later steps may fail")
-                rc_all = 1
+        for dataset, model in cells:
+            configure_cell(dataset, model)
+            section(f"CELL — {dataset} / {model}")
 
-        if step in ("prepare", "all"):
-            _, abort = _run_step(notifier, "prepare",
-                                 lambda: step_prepare(args.force, args.dry_run), True, args.dry_run)
-            if abort:
-                return 1
+            if args.clean:
+                _, abort = _run_step(notifier, f"clean[{CELL}]",
+                                     lambda: step_clean(args.dry_run, args.yes), True, args.dry_run)
+                if abort:
+                    return 1
 
-        if step == "build_masks":  # explicit/opt-in — only mask arms need SAM masks
-            _, abort = _run_step(notifier, "build_masks",
-                                 lambda: step_build_masks(args.device, args.dry_run),
-                                 True, args.dry_run)
-            if abort:
-                return 1
-
-        if step == "generate":  # explicit only; `all`/`train` auto-prep inside the batch
-            _, abort = _run_step(notifier, "generate",
-                                 lambda: step_generate(arms or ALL_ARMS, args.device,
-                                                       args.scan_weights, args.dry_run),
-                                 True, args.dry_run)
-            if abort:
-                return 1
-
-        if step in ("train", "all"):
-            _, abort = _run_step(notifier, "train",
-                                 lambda: step_train(arms, seeds, base_epochs, args.device,
-                                                    args.scan_weights, args.dry_run),
-                                 True, args.dry_run)
-            if abort:
-                return 1
-
-        if step in ("report", "all"):
-            if args.smoke:
-                warn("SMOKE — report skipped (2-epoch/1-seed runs are not valid numbers)")
-            else:
-                good, _ = _run_step(notifier, "report",
-                                    lambda: step_report(args.eval_split, seeds, args.dry_run),
-                                    False, args.dry_run)
+            if step in ("download", "all") and not args.skip_download:
+                good, _ = _run_step(notifier, f"download[{CELL}]",
+                                    lambda: step_download(args.dry_run),
+                                    fatal=(step == "download"), dry_run=args.dry_run)
+                if not good and step == "download":
+                    return 1
                 if not good:
+                    warn("raw files missing — later steps may fail")
                     rc_all = 1
 
+            if step in ("prepare", "all"):
+                _, abort = _run_step(notifier, f"prepare[{CELL}]",
+                                     lambda: step_prepare(args.force, args.dry_run), True, args.dry_run)
+                if abort:
+                    return 1
+
+            if step == "build_masks":  # explicit/opt-in — only mask arms need SAM masks
+                _, abort = _run_step(notifier, f"build_masks[{CELL}]",
+                                     lambda: step_build_masks(args.device, args.dry_run),
+                                     True, args.dry_run)
+                if abort:
+                    return 1
+
+            if step == "generate":  # explicit only; `all`/`train` auto-prep inside the batch
+                _, abort = _run_step(notifier, f"generate[{CELL}]",
+                                     lambda: step_generate(arms or ALL_ARMS, args.device,
+                                                           args.scan_weights, args.dry_run),
+                                     True, args.dry_run)
+                if abort:
+                    return 1
+
+            if step in ("train", "all"):
+                _, abort = _run_step(notifier, f"train[{CELL}]",
+                                     lambda: step_train(arms, seeds, base_epochs, args.device,
+                                                        args.scan_weights, args.dry_run),
+                                     True, args.dry_run)
+                if abort:
+                    return 1
+
+            if step in ("report", "all"):
+                if args.smoke:
+                    warn("SMOKE — report skipped (2-epoch/1-seed runs are not valid numbers)")
+                else:
+                    good, _ = _run_step(notifier, f"report[{CELL}]",
+                                        lambda: step_report(args.eval_split, seeds, args.dry_run),
+                                        False, args.dry_run)
+                    if not good:
+                        rc_all = 1
+
         section("DONE")
-        log(f"grid status : {STATUS_FILE.name}")
-        log(f"report      : {REPORT_DIR.relative_to(PROJECT_ROOT)}/report.md")
+        log(f"cells       : {', '.join(f'{d}/{m}' for d, m in cells)}")
+        log("reports     : reports/det/<dataset>_<model>/report.md")
         if not args.dry_run:
             icon = "✅" if rc_all == 0 else "⚠️"
-            notifier.send_message(f"{icon} <b>REPRODUCE DONE</b> <code>{step}</code>")
+            notifier.send_message(f"{icon} <b>REPRODUCE DONE</b> <code>{step}</code> · "
+                                  f"{len(cells)} cell(s)")
     return rc_all
 
 

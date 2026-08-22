@@ -1,13 +1,16 @@
-# Main experiment grid: 10 arms x 7 seeds = 70 runs. K=0.5 fixed.
-# (mask arms + photometric_full + signgen_controlnet anexados após os 42 originais; resumível,
-#  não retreina o que existe. mask arms exigem cache SAM (reproduce.py --step build_masks);
-#  signgen_controlnet exige o verificador (scripts/detection/train_verifier.py) + GPU.)
-# batch_run_det.py expands (arm x seed) -> run entries, writes batch_status_det.json.
+# Main experiment grid for the paper: 7 augmentation arms x 14 seeds = 98 runs per
+# (dataset x detector) cell, K=0.5 fixed. batch_run_det.py expands (arm x seed) ->
+# run entries and writes a per-cell batch_status_*.json (resumable: done runs skipped,
+# --retry-failed re-runs failures). The same config is reused for every cell; the
+# dataset comes from the --prepared path and the detector from --model (see reproduce.py).
+#
+# Arm order = the paper's cost ladder (cheap first, so diffusion_bg / signgen_controlnet
+# can reuse the already-trained zero_aug seed-0 scanner/verifier by the time they run):
+#   zero_aug (No-Aug) < da_only (Standard-Aug) < real_duplicate < photometric_full
+#   < copy_paste < diffusion_bg < signgen_controlnet (SignGen).
 name: full_grid_det
-dataset: tt100k
+dataset: tt100k   # label only; batch_run_det infers the real dataset from --prepared
 K: 0.5
-seeds: [0, 1, 2, 3, 4, 5, 6]
-# order: cheap arms first (diffusion validated in parallel), see p3-plano-experimentos.
-# signgen_controlnet ao fim: braço-chave (placa sintética vs copy_paste), append resumível.
-arms: [zero_aug, da_only, real_duplicate, bg_photometric, bg_photometric_mask, copy_paste, copy_paste_mask, diffusion_bg, photometric_full, signgen_controlnet]
-eval: {run_on_test: false}   # test only at final report
+seeds: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13]
+arms: [zero_aug, da_only, real_duplicate, photometric_full, copy_paste, diffusion_bg, signgen_controlnet]
+eval: {run_on_test: false}   # test only at the final report step
